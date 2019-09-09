@@ -12,8 +12,9 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
-Library
-  exposed-modules:     GCLParser.Parser
+executable GCLparser
+  main-is:             Main.hs
+  other-modules :     GCLParser.Parser
                      , GCLParser.GCLDatatype
                      , GCLParser.PrettyPrint
                      , GCLLexer.Token
