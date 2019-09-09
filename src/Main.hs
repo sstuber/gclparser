@@ -7,3 +7,11 @@ main = do
     test <- parseGCLfile "examples/min.gcl"
 
     putStrLn "hello"
+
+
+
+
+
+
+
+
