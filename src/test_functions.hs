@@ -18,5 +18,16 @@ filterT f  (x:xs) = if f x
         x : (filterT f xs)
     else
         filterT f xs
+filterT :: (a -> Bool) -> [a] -> [a]
+filterT f  (x:xs)
+    | f x       = x : (filterT f xs)
+    | otherwise = filterT f xs
+
+
+if f x
+    then
+        x : (filterT f xs)
+    else
+        filterT f xs
 filter f [] = []
 
