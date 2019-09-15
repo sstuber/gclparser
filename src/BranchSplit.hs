@@ -20,19 +20,27 @@ splitBranch s@(IfThenElse g s1 s2) = (map (\xs-> (Assume g) : xs) (splitBranch s
 splitBranch s@(While exp stmt) = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt))
 splitBranch s = [[s]]
 
-
+-- assuming this is: program path -> post condition
 generateWlp :: Stmt -> Expr -> Expr
 generateWlp (Skip) expr = expr
 generateWlp (Assume expr1 ) expr2 = BinopExpr Implication expr1 expr2
--- generateWlp (Assign name expr) =
+generateWlp (Assign name expr) expr2 = replaceVar name expr expr2
+-- TODO: This does not hold for the first assert, should make an exception for that. Maybe type match on []?
+generateWlp (Assert expr1) expr2 = BinopExpr And expr1 expr2
+-- Is sequence needed? Seems like we already deal with this in splitBranch. Maybe we can use sequence instead of a list?
+generateWlp (Seq s1 s2) expr2 = generateWlp s1 (generateWlp s2 expr2)
+generateWlp (IfThenElse g s1 s2) expr2 = BinopExpr And
+                                         (BinopExpr Implication g (generateWlp s1 expr2))
+                                         (BinopExpr Implication (OpNeg g)  (generateWlp s2 expr2))
 
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
-replaceVar name toReplaceExpr (LitI int) = (LitI int)
-replaceVar name toReplaceExpr (LitB int) = (LitB int)
 replaceVar name toReplaceExpr e@(Var name2) = if name2 == name then toReplaceExpr else e
+replaceVar name toReplaceExpr (LitI int) = (LitI int)
+replaceVar name toReplaceExpr (LitB bool) = (LitB bool)
+replaceVar name toReplaceExpr (Parens expr) = Parens (replaceVar name toReplaceExpr expr)
+replaceVar name toReplaceExpr (OpNeg expr) = OpNeg (replaceVar name toReplaceExpr expr)
 replaceVar name toReplaceExpr (BinopExpr op expr1 expr2) = BinopExpr op (replaceVar name toReplaceExpr expr1) (replaceVar name toReplaceExpr expr2)
-
 
 data DataWlp
     = VarWlp String
