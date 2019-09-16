@@ -1,6 +1,7 @@
 module BranchSplit where
 
 import GCLParser.GCLDatatype
+import Datatypes
 
 -- TODO first assume and last assert are pre and post conditions
 -- convert
@@ -11,7 +12,7 @@ splitPre s@(Assume a) = (Just s)
 splitPre (Seq s1 s2) = splitPre s1
 splitPre _ = Nothing
 
-splitBranch :: Stmt -> [[Stmt]]
+splitBranch :: Stmt -> [ProgramPath]
 splitBranch s@(Skip)        = [[s]]
 splitBranch s@(Assume _ )   = [[s]]
 splitBranch s@(AAssign _ _ _)    = [[s]]
