@@ -1,3 +1,9 @@
 module Datatypes where
 
-type ProgramPath
+import GCLParser.GCLDatatype
+
+type ProgramPath = [Stmt]
+
+type PreprocessResult = (Stmt, Maybe PreCon)--, PostCon
+type PreCon           = Expr
+type PostCon          = Expr

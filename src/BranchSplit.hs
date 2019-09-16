@@ -7,10 +7,11 @@ import Datatypes
 -- convert
 -- TODO change the name of all variables in a block
 
-splitPre :: Stmt -> Maybe Stmt
-splitPre s@(Assume a)   = (Just s)
+splitPre :: Stmt -> Maybe Expr
+splitPre (Assume a)     = (Just a)
 splitPre (Seq s1 s2)    = splitPre s1
 splitPre _              = Nothing
+
 
 -- remove the first assume you find on the left side of the seqs
 removePre :: Stmt -> Stmt
