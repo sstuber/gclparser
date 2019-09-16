@@ -6,6 +6,10 @@ import GCLParser.GCLDatatype
 -- convert
 -- TODO change the name of all variables in a block
 
+splitPre :: Stmt -> Maybe Stmt
+splitPre s@(Assume a) = (Just s)
+splitPre (Seq s1 s2) = splitPre s1
+splitPre _ = Nothing
 
 splitBranch :: Stmt -> [[Stmt]]
 splitBranch s@(Skip)        = [[s]]
@@ -20,18 +24,22 @@ splitBranch s@(IfThenElse g s1 s2) = (map (\xs-> (Assume g) : xs) (splitBranch s
 splitBranch s@(While exp stmt) = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt))
 splitBranch s = [[s]]
 
+generatePost :: Stmt -> Expr
+generatePost (Assert expr) = expr
+
 -- assuming this is: program path -> post condition
 generateWlp :: Stmt -> Expr -> Expr
 generateWlp (Skip) expr = expr
-generateWlp (Assume expr1 ) expr2 = BinopExpr Implication expr1 expr2
+generateWlp (Assume expr1) expr2 = BinopExpr Implication expr1 expr2
 generateWlp (Assign name expr) expr2 = replaceVar name expr expr2
 -- TODO: This does not hold for the first assert, should make an exception for that. Maybe type match on []?
 generateWlp (Assert expr1) expr2 = BinopExpr And expr1 expr2
 -- Is sequence needed? Seems like we already deal with this in splitBranch. Maybe we can use sequence instead of a list?
-generateWlp (Seq s1 s2) expr2 = generateWlp s1 (generateWlp s2 expr2)
+-- generateWlp (Seq s1 s2) a@(Just expr2) = generateWlp s1 (generateWlp s2 a)
+-- generateWlp (Block [decl:] stmt) expr = replaceVar generatename
 generateWlp (IfThenElse g s1 s2) expr2 = BinopExpr And
-                                         (BinopExpr Implication g (generateWlp s1 expr2))
-                                         (BinopExpr Implication (OpNeg g)  (generateWlp s2 expr2))
+                                                (BinopExpr Implication g (generateWlp s1 expr2))
+                                                (BinopExpr Implication (OpNeg g)  (generateWlp s2 expr2))
 
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
