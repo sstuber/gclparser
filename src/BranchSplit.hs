@@ -57,31 +57,6 @@ replaceVar name toReplaceExpr (Parens expr) = Parens (replaceVar name toReplaceE
 replaceVar name toReplaceExpr (OpNeg expr) = OpNeg (replaceVar name toReplaceExpr expr)
 replaceVar name toReplaceExpr (BinopExpr op expr1 expr2) = BinopExpr op (replaceVar name toReplaceExpr expr1) (replaceVar name toReplaceExpr expr2)
 
-data DataWlp
-    = VarWlp String
-    | IntWlp Int
-    | BoolWlp Bool
-    | ExprWlp DataWlp OprWlp DataWlp
-    | LogicWlp DataWlp LogicOpr DataWlp
-    | ParenWlp DataWlp
-    | NegWlp DataWlp
-
-test = LogicWlp (VarWlp "p") OrWlp (VarWlp "q")
-
-data LogicOpr
-    = AndWlp
-    | OrWlp
-    | ImpWlp
-
-data OprWlp
-    = Plus
-    | Minus
-    | Times
-    | Div
-
---1<x ∧ 0<x ∧ 1<x ∧ x≤2 ⇒ x=3
-
-
 
 
 {-
