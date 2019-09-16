@@ -8,9 +8,15 @@ import Datatypes
 -- TODO change the name of all variables in a block
 
 splitPre :: Stmt -> Maybe Stmt
-splitPre s@(Assume a) = (Just s)
-splitPre (Seq s1 s2) = splitPre s1
-splitPre _ = Nothing
+splitPre s@(Assume a)   = (Just s)
+splitPre (Seq s1 s2)    = splitPre s1
+splitPre _              = Nothing
+
+-- remove the first assume you find on the left side of the seqs
+removePre :: Stmt -> Stmt
+removePre (Seq (Assume _) s2) = s2
+removePre s@(Seq s1 s2)       = Seq (removePre s1) s2
+removePre s                   = s
 
 splitBranch :: Stmt -> [ProgramPath]
 splitBranch s@(Skip)        = [[s]]
