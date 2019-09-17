@@ -7,9 +7,14 @@ import GCLParser.GCLDatatype
 -- TODO change the name of all variables in a block
 
 splitPre :: Stmt -> Maybe Stmt
-splitPre s@(Assume a) = (Just s)
+splitPre s@(Assume _) = (Just s)
 splitPre (Seq s1 s2) = splitPre s1
 splitPre _ = Nothing
+
+splitPost :: Stmt -> Maybe Stmt
+splitPost s@(Assert _) = (Just s)
+splitPost (Seq s1 s2) = splitPre s2
+splitPost a = (Just a)
 
 splitBranch :: Stmt -> [[Stmt]]
 splitBranch s@(Skip)        = [[s]]
