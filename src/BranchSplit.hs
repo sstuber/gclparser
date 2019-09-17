@@ -3,25 +3,30 @@ module BranchSplit where
 import GCLParser.GCLDatatype
 import Datatypes
 
--- TODO first assume and last assert are pre and post conditions
--- convert
 -- TODO change the name of all variables in a block
+-- TODO add means to process arrays
+-- TODO get programs in the right structure to check validity
 
-splitPre :: Stmt -> Maybe Expr
-splitPre (Assume a)     = (Just a)
-splitPre (Seq s1 s2)    = splitPre s1
-splitPre _              = Nothing
+fetchPre :: Stmt -> Maybe PreCon
+fetchPre (Assume a)     = Just a
+fetchPre (Seq s1 s2)    = fetchPre s1
+fetchPre _              = Nothing
 
-splitPost :: Stmt -> Maybe Expr
-splitPost (Assert a)     = (Just a)
-splitPost (Seq s1 s2)    = splitPost s2
-splitPost _              = Nothing
+fetchPost :: Stmt -> Maybe PostCon
+fetchPost (Assert a)     = (Just a)
+fetchPost (Seq s1 s2)    = fetchPost s2
+fetchPost _              = Nothing
 
 -- remove the first assume you find on the left side of the seqs
 removePre :: Stmt -> Stmt
 removePre (Seq (Assume _) s2) = s2
 removePre s@(Seq s1 s2)       = Seq (removePre s1) s2
 removePre s                   = s
+
+removePost :: Stmt -> Stmt
+removePost (Seq s1 (Assert _)) = s1
+removePost s@(Seq s1 s2)       = Seq s1 (removePost s2)
+removePost s                    = s
 
 splitBranch :: Stmt -> [ProgramPath]
 splitBranch s@(Skip)                = [[s]]
