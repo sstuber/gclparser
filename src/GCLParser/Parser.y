@@ -153,7 +153,7 @@ PExpr :: { Expr }
        | minus intvalue                                 { LitI (-$2) }
        | boolvalue                                      { LitB $1 }
        | popen PExpr pclose                             { Parens $2 }
-       | identifier sopen PExpr sclose                  { ArrayElem $1 $3 }
+       | identifier sopen PExpr sclose                  { ArrayElem (Var $1) $3 }
        | sizeof identifier                              { SizeOf $2 }
        | neg PExpr                                      { OpNeg $2 } 
        | PExpr and PExpr                                { opAnd $1 $3 }

@@ -29,10 +29,6 @@ removePost s@(Seq s1 s2)       = Seq s1 (removePost s2)
 removePost s                    = s
 
 splitBranch :: Stmt -> [ProgramPath]
-splitBranch s@(Skip)                = [[s]]
-splitBranch s@(Assume _ )           = [[s]]
-splitBranch s@(AAssign _ _ _)       = [[s]]
-splitBranch s@(Assign _ _)          = [[s]]
 splitBranch s@(Seq s1 s2)           = [ x ++ y  | x <-  splitBranch s1, y <- splitBranch s2 ]
 splitBranch s@(IfThenElse g s1 s2)  =
         (map (putInFront (Assume g))         (splitBranch s1)) ++
