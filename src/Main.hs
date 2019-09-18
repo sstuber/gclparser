@@ -8,7 +8,7 @@ import Datatypes
 
 main :: IO ()
 main = do
-    (test1) <- parseGCLfile "examples/E.gcl"
+    (test1) <- parseGCLfile "examples/swap.gcl"
     putStrLn (show test1)
     let (Right program) = test1
     let test = splitBranch (stmt program)

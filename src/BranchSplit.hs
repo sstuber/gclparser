@@ -36,8 +36,9 @@ splitBranch s@(IfThenElse g s1 s2)  =
       where
         putInFront x y = x : y
 -- TODO expand loop to go n times deep
--- Might be worthwhile to look into replacing ++ for something else
 splitBranch s@(While exp stmt)      = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt))
+-- Not sure if this is the correct implementation of block, but needed it to test something.
+splitBranch (Block _ stmt) = splitBranch stmt
 splitBranch s = [[s]]
 
 generatePost :: Stmt -> Expr
@@ -45,18 +46,19 @@ generatePost (Assert expr) = expr
 
 -- assuming this is: program path -> post condition
 generateWlp :: Stmt -> Expr -> Expr
-generateWlp (Skip) expr                 = expr
-generateWlp (Assume expr1) expr2        = BinopExpr Implication expr1 expr2
-generateWlp (Assign name expr) expr2    = replaceVar name expr expr2
+generateWlp (Skip) post                 = post
+generateWlp (Assume expr1) post        = BinopExpr Implication expr1 post
+generateWlp (Assign name expr) post    = replaceVar name expr post
+generateWlp (AAssign name expr newval) post = replaceVar name (RepBy (Var name) expr newval) post
 -- TODO: This does not hold for the first assert, should make an exception for that. Maybe type match on []?
-generateWlp (Assert expr1) expr2        = BinopExpr And expr1 expr2
+generateWlp (Assert expr1) post        = BinopExpr And expr1 post
 -- Is sequence needed? Seems like we already deal with this in splitBranch. Maybe we can use sequence instead of a list?
 -- generateWlp (Seq s1 s2) a@(Just expr2) = generateWlp s1 (generateWlp s2 a)
 -- generateWlp (Block [decl:] stmt) expr = replaceVar generatename
-generateWlp (IfThenElse g s1 s2) expr2  = BinopExpr And ifSide elseSide
+generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
     where
-        ifSide   = BinopExpr Implication g (generateWlp s1 expr2)
-        elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 expr2)
+        ifSide   = BinopExpr Implication g (generateWlp s1 post)
+        elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
@@ -64,6 +66,12 @@ replaceVar name toReplaceExpr e@(Var name2)                 = if name2 == name t
 replaceVar name toReplaceExpr (LitI int)                    = (LitI int)
 replaceVar name toReplaceExpr (LitB bool)                   = (LitB bool)
 replaceVar name toReplaceExpr (Parens expr)                 = Parens (replaceVar name toReplaceExpr expr)
+replaceVar name toReplaceExpr (ArrayElem array index)       = ArrayElem (replaceVar name toReplaceExpr array)
+                                                                        (replaceVar name toReplaceExpr index)
+-- Maybe should go into newval with replaceVar?
+replaceVar name toReplaceExpr (RepBy arrayname expr newval) = RepBy (replaceVar name toReplaceExpr arrayname)
+                                                                    (replaceVar name toReplaceExpr expr)
+                                                                    (replaceVar name toReplaceExpr newval)
 replaceVar name toReplaceExpr (OpNeg expr)                  = OpNeg (replaceVar name toReplaceExpr expr)
 replaceVar name toReplaceExpr (BinopExpr op expr1 expr2)    = BinopExpr op replacedExpr1 replacedExpr2
     where
