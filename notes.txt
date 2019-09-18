@@ -1,0 +1,1 @@
+- Write something about Z3 only being able to check if something is satisfiable, so to check if it is valid you need to check if the negation is satisfiable.
