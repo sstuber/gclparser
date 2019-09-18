@@ -13,7 +13,7 @@ import qualified Data.Map.Strict as M
 
 type ConstMap         = M.Map String AST
 
-
+testHard :: Expr
 testHard =  BinopExpr
           Implication
           (BinopExpr LessThan (Var "y") (Var "x"))
@@ -30,7 +30,7 @@ testHard =  BinopExpr
                             (Var "y")
                             (Var "x"))))
               (Parens (BinopExpr LessThanEqual (Var "y") (Var "y"))))
-
+testEasy :: Expr
 testEasy = BinopExpr Equal (Var "y") (Var "x")
 
 
@@ -43,26 +43,79 @@ eval expr varDecls = do
 
     liftIO . putStrLn $ show varDeclMap
 
+    exprAst <- convertZ3ToExpr varDeclMap expr
+
+    result <- assertExpr exprAst
+    liftIO . putStrLn $ show result
+    return ()
+
+-- We negate our expression.
+-- If the negation of an expression is unsatisfiable then the original expression is valid
+-- TODO put this into the report
+assertExpr :: AST -> Z3 Result
+assertExpr ast = mkNot ast >>= assert >> check
 
 
 createZVar :: ConstMap ->  VarDeclaration-> Z3 ConstMap
 createZVar constMap (VarDeclaration name varType)  = do
     constSort <- case varType of
-        PType PTInt -> do mkIntSort
-        PType PTBool -> do mkBoolSort
-        AType PTInt -> do
-            intSort <- mkIntSort
-            mkArraySort intSort intSort
-        AType PTBool -> do
-            intSort <- mkIntSort
-            boolSort <- mkBoolSort
+        PType PTInt     -> mkIntSort
+        PType PTBool    -> mkBoolSort
+        AType PTInt     -> mkIntSort >>= \intSort -> mkArraySort intSort intSort
+        AType PTBool    -> do
+            intSort   <- mkIntSort
+            boolSort  <- mkBoolSort
             mkArraySort intSort boolSort
 
-    finalConstant <- mkFreshConst name constSort
-    let updatedMap = M.insert name finalConstant constMap
+    finalConstant     <- mkFreshConst name constSort
+    let updatedMap    = M.insert name finalConstant constMap
     return updatedMap
 
 
--- Symbol -> Sort -> Const
--- M.Map String Const
+convertZ3ToExpr :: ConstMap -> Expr -> Z3 AST
+convertZ3ToExpr constMap (Var a)            = do
+-- TODO this is not save yet
+    let (Just lookupConst) =  M.lookup a constMap
+    return lookupConst
+convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
+convertZ3ToExpr constMap (LitB x)           = mkBool x
+convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
+-- TODO fix arrays
+--convertZ3ToExpr constMap (ArrayElem x y) =
+convertZ3ToExpr constMap (OpNeg x)          = convertZ3ToExpr constMap x >>= mkNot
+convertZ3ToExpr constMap (BinopExpr op x y) = (convertZ3ToExpr constMap x) >>= \res1 ->  (convertZ3ToExpr constMap y) >>= \res2 -> (z3ByOp op) res1 res2
 
+
+z3ByOp :: BinOp -> (AST -> AST -> Z3 AST)
+z3ByOp And              = \x y -> mkAnd [x,y]
+z3ByOp Or               = \x y -> mkOr  [x,y]
+z3ByOp Implication      = mkImplies
+z3ByOp LessThan         = mkLt
+z3ByOp LessThanEqual    = mkLe
+z3ByOp GreaterThan      = mkGt
+z3ByOp GreaterThanEqual = mkGe
+z3ByOp Equal            = mkEq
+
+z3ByOp Minus            = \x y -> mkSub [x,y]
+z3ByOp Plus             = \x y -> mkAdd [x,y]
+z3ByOp Multiply         = \x y -> mkMul [x,y]
+z3ByOp Divide           = mkDiv
+
+{-
+data Expr
+    = Var                String
+    | LitI               Int
+    | LitB               Bool
+    | LitNull
+    | Parens             Expr
+    | ArrayElem          Expr Expr
+    | OpNeg              Expr
+    | BinopExpr          BinOp  Expr   Expr
+    | Forall             String Expr
+    | SizeOf             String
+    | RepBy              Expr   Expr   Expr
+    | Cond               Expr   Expr   Expr
+    | NewStore           Expr
+    | Dereference        String
+    deriving (Eq)
+-}
