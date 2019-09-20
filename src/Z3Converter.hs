@@ -33,21 +33,55 @@ testHard =  BinopExpr
 testEasy :: Expr
 testEasy = BinopExpr Equal (Var "y") (Var "x")
 
+testVars :: [VarDeclaration]
+testVars = [
+    VarDeclaration "x" (PType PTInt),
+    VarDeclaration "y" (PType PTInt)
+  ]
 
+--------------------------------------------------------------------------------------------------------
+-- main function to use form this file
+--------------------------------------------------------------------------------------------------------
+
+-- unsat -> valid as we negate our expr
+isExprValid  :: Expr -> [VarDeclaration] -> IO (Either Bool String)
+isExprValid expr varDecls = do
+  result <- evalZ3 (evalExpr expr varDecls)
+  return (isValid result)
+    where
+      isValid res = case res of
+          Unsat -> Left True
+          Sat   -> Left False
+          Undef -> Right "expression could not be validated"
+
+
+ioPrint :: String -> Z3 ()
+ioPrint = liftIO . putStrLn
 --evaluateWlp :: Expr -> [VarDeclaration]-> Bool
 --evaluateWlp expr varDecls = evalZ3 ()
 
-eval ::  Expr -> [VarDeclaration] -> Z3 ()
-eval expr varDecls = do
+
+
+evalExpr ::  Expr -> [VarDeclaration] -> Z3 Result
+evalExpr expr varDecls = do
     varDeclMap <- foldM createZVar M.empty varDecls
 
-    liftIO . putStrLn $ show varDeclMap
+    ioPrint "var map"
+    let declAsts = M.elems varDeclMap
+    printresult <- forM declAsts (\decl -> do
+          declStr <- astToString decl
+          ioPrint declStr
+      )
 
     exprAst <- convertZ3ToExpr varDeclMap expr
-
+    astString <- astToString exprAst
+    ioPrint astString
+    -- result <- (assert exprAst >> check)
+    -- ioPrint $ show result
     result <- assertExpr exprAst
-    liftIO . putStrLn $ show result
-    return ()
+    ioPrint $ show result
+
+    return result
 
 -- We negate our expression.
 -- If the negation of an expression is unsatisfiable then the original expression is valid
