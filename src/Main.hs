@@ -6,20 +6,22 @@ import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
 import qualified Data.Map.Strict as M
+import Z3Converter
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
 
 
+
 main :: IO ()
 main = do
-    (test1) <- parseGCLfile "examples/swap.gcl"
+    (test1) <- parseGCLfile "../examples/min.gcl"
     putStrLn (show test1)
     let (Right program) = test1
     let test = splitBranch (stmt program) uNFOLDLOOP
 
     -- putStrLn $ show test
-    (proc, pre, (Just post)) <- preProcessProgram program
+    (proc, pre, (Just post), varDecls) <- preProcessProgram program
 
     putStrLn "TEST"
     putStrLn $ show proc
@@ -33,6 +35,11 @@ main = do
     putStrLn "wlp below -------------------------------------- "
     putStrLn $ show wlp
 
+    isValid <- isExprValid wlp varDecls
+
+    putStrLn $ show isValid
+    --putStrLn $ show proc
+
 
     putStrLn "hello"
 
@@ -44,8 +51,8 @@ preProcessProgram program = do
     let programBody = stmt program
 
     let uniqueVars = renameVars programBody M.empty
-    let allNamesAndTypes = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
-    putStrLn $ "allNamesAndTypes" ++ (show allNamesAndTypes)
+    let allVarDeclarations = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
+    putStrLn $ "allNamesAndTypes " ++ (show allVarDeclarations)
 
     let noBlocks = removeAllBlocks uniqueVars
     let maybePreCon = fetchPre noBlocks
@@ -53,8 +60,18 @@ preProcessProgram program = do
     noPreBody <- removePreCondition maybePreCon noBlocks
     noPostBody <- removePostCondition maybePostCon noPreBody
 
+    -- TODO clean up
+    --varDecls <- fetchVarDecls program noPostBody
 
-    return (noPostBody, maybePreCon, maybePostCon)
+    return (noPostBody, maybePreCon, maybePostCon, allVarDeclarations)
+
+fetchVarDecls :: Program -> Stmt -> IO [VarDeclaration]
+fetchVarDecls program stmt = do
+    let inVars = input program
+    let outVars = output program
+    -- TODO vars from blocks to varDecl list
+    return (inVars ++ outVars)
+
 
 -- TODO write a function like this for postCondition except post condition has to be present
 removePreCondition :: Maybe PreCon -> Stmt -> IO Stmt
