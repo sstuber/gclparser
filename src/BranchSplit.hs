@@ -38,8 +38,31 @@ splitBranch s@(IfThenElse g s1 s2)  =
 -- TODO expand loop to go n times deep
 splitBranch s@(While exp stmt)      = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt))
 -- Not sure if this is the correct implementation of block, but needed it to test something.
-splitBranch (Block _ stmt) = splitBranch stmt
+splitBranch (Block declarations stmt) = splitBranch (changeVarNames declarations stmt)
+splitBranch (Block [] stmt) = splitBranch stmt
 splitBranch s = [[s]]
+
+changeVarNames :: [VarDeclaration] -> Stmt -> Stmt
+changeVarNames [(VarDeclaration name _)] stmt = (changeVarName name stmt)
+changeVarNames ((VarDeclaration name _) : t) stmt = changeVarNames t (changeVarName name stmt)
+
+-- TODO if the post condition is about local variables, then this is problematic for our program.
+changeVarName :: String -> Stmt -> Stmt
+-- TODO give the variable an unique name
+changeVarName name (Assert expr) = Assert (replaceVar name (Var name) expr)
+changeVarName name (Assume expr) = Assume (replaceVar name (Var name) expr)
+changeVarName name (Assign name2 expr) = Assign (if name == name2 then ('1' : name)  else name2)
+                                                (replaceVar name (Var name) expr)
+changeVarName name (AAssign name2 index expr) = AAssign (if name == name2 then ('1' : name) else name2)
+                                                        (replaceVar name (Var name) index)
+                                                        (replaceVar name (Var name) index)
+changeVarName name (Seq stmt1 stmt2) = Seq (changeVarName name stmt1) (changeVarName name stmt2)
+changeVarName name (IfThenElse expr stmt1 stmt2) = IfThenElse (replaceVar name (Var name) expr)
+                                                              (changeVarName name stmt1)
+                                                              (changeVarName name stmt2)
+changeVarName name (While expr stmt) = While (replaceVar name (Var name) expr) (changeVarName name stmt)
+changeVarName name (Block decl stmt) = changeVarNames decl stmt
+-- TODO trycatch
 
 generatePost :: Stmt -> Expr
 generatePost (Assert expr) = expr
