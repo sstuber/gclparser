@@ -2,6 +2,7 @@ module PreProcessing where
 
 import GCLParser.GCLDatatype
 import Datatypes
+import Common
 
 -- TODO function to get all var names for Z3
    -- structure of pre-processing
