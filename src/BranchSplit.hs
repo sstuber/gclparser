@@ -57,6 +57,7 @@ replaceVar name toReplaceExpr (RepBy arrayname expr newval) = RepBy (replaceVar 
                                                                     (replaceVar name toReplaceExpr expr)
                                                                     (replaceVar name toReplaceExpr newval)
 replaceVar name toReplaceExpr (OpNeg expr)                  = OpNeg (replaceVar name toReplaceExpr expr)
+replaceVar name toReplaceExpr (SizeOf name2)                = SizeOf name2
 replaceVar name toReplaceExpr (BinopExpr op expr1 expr2)    = BinopExpr op replacedExpr1 replacedExpr2
     where
         replacedExpr1 = replaceVar name toReplaceExpr expr1
