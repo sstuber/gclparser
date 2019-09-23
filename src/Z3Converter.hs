@@ -91,7 +91,7 @@ assertExpr ast = mkNot ast >>= assert >> check
 
 
 createZVar :: ConstMap ->  VarDeclaration-> Z3 ConstMap
-createZVar constMap (VarDeclaration name varType)  = do
+createZVar constMap decl@(VarDeclaration name varType)  = do
     constSort <- case varType of
         PType PTInt     -> mkIntSort
         PType PTBool    -> mkBoolSort
@@ -101,9 +101,22 @@ createZVar constMap (VarDeclaration name varType)  = do
             boolSort  <- mkBoolSort
             mkArraySort intSort boolSort
 
+    midMap <- if isArray decl then
+          do
+            let lengthName = '#': name
+            sort <- mkIntSort
+            var <- mkFreshConst lengthName sort
+            return $ M.insert lengthName var constMap
+       else
+          return constMap
+
     finalConstant     <- mkFreshConst name constSort
-    let updatedMap    = M.insert name finalConstant constMap
+    let updatedMap    = M.insert name finalConstant midMap
     return updatedMap
+
+isArray :: VarDeclaration -> Bool
+isArray (VarDeclaration _ (AType _)) = True
+isArray _                               = False
 
 
 convertZ3ToExpr :: ConstMap -> Expr -> Z3 AST
