@@ -5,6 +5,7 @@ import GCLParser.Parser
 import GCLParser.PrettyPrint
 import GCLParser.GCLDatatype
 import Datatypes
+import PreProcessing
 
 main :: IO ()
 main = do
