@@ -7,17 +7,21 @@ import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
 
+uNFOLDLOOP :: Int
+uNFOLDLOOP = 1
+
+
 main :: IO ()
 main = do
     (test1) <- parseGCLfile "examples/swap.gcl"
     putStrLn (show test1)
     let (Right program) = test1
-    let test = splitBranch (stmt program)
+    let test = splitBranch (stmt program) uNFOLDLOOP
 
     -- putStrLn $ show test
     (proc, pre, (Just post)) <- preProcessProgram program
 
-    let branches = splitBranch proc
+    let branches = splitBranch proc uNFOLDLOOP
     let wlp = foldr generateWlp post (head branches)
     putStrLn $ show (head branches)
     putStrLn $ show wlp

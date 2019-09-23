@@ -10,19 +10,23 @@ import Common
 -- TODO get programs in the right structure to check validity
 
 
-splitBranch :: Stmt -> [ProgramPath]
-splitBranch s@(Seq s1 s2)           = [ x ++ y  | x <-  splitBranch s1, y <- splitBranch s2 ]
-splitBranch s@(IfThenElse g s1 s2)  =
-        (map (putInFront (Assume g))         (splitBranch s1)) ++
-        (map (putInFront (Assume (OpNeg g))) (splitBranch s2))
+splitBranch :: Stmt -> Int -> [ProgramPath]
+splitBranch s@(Seq s1 s2) n          = [ x ++ y  | x <-  splitBranch s1 n, y <- splitBranch s2 n ]
+splitBranch s@(IfThenElse g s1 s2) n =
+        (map (putInFront (Assume g))         (splitBranch s1 n)) ++
+        (map (putInFront (Assume (OpNeg g))) (splitBranch s2 n))
       where
         putInFront x y = x : y
 -- TODO expand loop to go n times deep
-splitBranch s@(While exp stmt)      = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt))
+splitBranch s@(While exp stmt) n        = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt n))
+    where
+        repeatLoop xs = map (\loopLength -> concat (take loopLength (repeat xs))) [0..n]
+        postFixLoops xss = map (\xs -> xs ++ [Assume (OpNeg exp)]) xss
+
 -- Not sure if this is the correct implementation of block, but needed it to test something.
-splitBranch (Block declarations stmt) = splitBranch (changeVarNames declarations stmt)
-splitBranch (Block [] stmt) = splitBranch stmt
-splitBranch s = [[s]]
+splitBranch (Block declarations stmt) n = splitBranch (changeVarNames declarations stmt) n
+splitBranch (Block [] stmt) n           = splitBranch stmt n
+splitBranch s n = [[s]]
 
 -- TODO trycatch
 
