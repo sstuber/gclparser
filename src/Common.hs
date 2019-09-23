@@ -20,3 +20,4 @@ replaceVar name toReplaceExpr (BinopExpr op expr1 expr2)    = BinopExpr op repla
     where
         replacedExpr1 = replaceVar name toReplaceExpr expr1
         replacedExpr2 = replaceVar name toReplaceExpr expr2
+replaceVar name toReplaceExpr (Forall i expr)                             = Forall i (replaceVar name toReplaceExpr expr)

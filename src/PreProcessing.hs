@@ -54,3 +54,4 @@ changeVarName name (IfThenElse expr stmt1 stmt2) = IfThenElse (replaceVar name (
                                                               (changeVarName name stmt2)
 changeVarName name (While expr stmt) = While (replaceVar name (Var name) expr) (changeVarName name stmt)
 changeVarName name (Block decl stmt) = changeVarNames decl stmt
+changeVarName name (Skip) = Skip

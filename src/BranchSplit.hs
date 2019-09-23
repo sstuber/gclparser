@@ -18,7 +18,8 @@ splitBranch s@(IfThenElse g s1 s2) n =
       where
         putInFront x y = x : y
 -- TODO expand loop to go n times deep
-splitBranch s@(While exp stmt) n        = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt n))
+splitBranch s@(While exp stmt) n        = postFixLoops (concat (map (\xs-> repeatLoop ((Assume exp) : xs)) (splitBranch stmt n)))
+--splitBranch s@(While exp stmt) n        = (map (\xs-> (Assume exp) : xs ++ [Assume (OpNeg exp)]) (splitBranch stmt n))
     where
         repeatLoop xs = map (\loopLength -> concat (take loopLength (repeat xs))) [0..n]
         postFixLoops xss = map (\xs -> xs ++ [Assume (OpNeg exp)]) xss
