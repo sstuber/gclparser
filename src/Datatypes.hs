@@ -5,6 +5,6 @@ import qualified Data.Map.Strict as M
 
 type ProgramPath = [Stmt]
 
-type PreprocessResult = (Stmt, Maybe PreCon, Maybe PostCon)--, PostCon
+type PreprocessResult = (Stmt, Maybe PreCon, Maybe PostCon, [VarDeclaration])--, PostCon
 type PreCon           = Expr
 type PostCon          = Expr

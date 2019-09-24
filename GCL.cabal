@@ -21,7 +21,8 @@ executable GCLparser
                      , GCLLexer.Lexer
                      , ExamplesOfSemanticFunction
   -- other-extensions:    
-  build-depends:       base   >= 4.10 
+  build-depends:       base
+                     , z3
                      , array
                      , containers
                      , optparse-applicative
