@@ -136,10 +136,29 @@ convertZ3ToExpr constMap (SizeOf a )        = do
 convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
 convertZ3ToExpr constMap (LitB x)           = mkBool x
 convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
--- TODO fix arrays
---convertZ3ToExpr constMap (ArrayElem x y) =
+convertZ3ToExpr constMap e@(ArrayElem _ _)  = handleArrayElem constMap e
 convertZ3ToExpr constMap (OpNeg x)          = convertZ3ToExpr constMap x >>= mkNot
 convertZ3ToExpr constMap (BinopExpr op x y) = (convertZ3ToExpr constMap x) >>= \res1 ->  (convertZ3ToExpr constMap y) >>= \res2 -> (z3ByOp op) res1 res2
+
+
+
+handleArrayElem :: ConstMap -> Expr -> Z3 AST
+handleArrayElem constMap (ArrayElem expr1 expr2) = do
+    arrayAST <- handleArrayElem constMap expr1
+    indexAST <- convertZ3ToExpr constMap expr2
+    mkSelect arrayAST indexAST
+handleArrayElem constMap (RepBy expr1 expr2 expr3) = do
+    arrayAST <- handleArrayElem constMap expr1
+    indexAST <- convertZ3ToExpr constMap expr2
+    valueAST <- convertZ3ToExpr constMap expr3
+    mkStore arrayAST indexAST valueAST
+handleArrayElem constMap (Var a) = do
+    let maybeLookup = M.lookup a constMap
+    let finalVar = case maybeLookup of
+          Nothing       -> error  ("var name not found -> " ++ a)
+          Just z3Var    -> z3Var
+    return finalVar
+
 
 
 z3ByOp :: BinOp -> (AST -> AST -> Z3 AST)
