@@ -2,7 +2,6 @@ module Main where
 
 import BranchSplit
 import GCLParser.Parser
-import GCLParser.PrettyPrint
 import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
@@ -25,8 +24,13 @@ main = do
     putStrLn "TEST"
     putStrLn $ show proc
     let branches = splitBranch proc uNFOLDLOOP
+
     let wlp = foldr generateWlp post (head branches)
-    --putStrLn $ show (head branches)
+    putStrLn $ show (head branches)
+    --putStrLn $ show (length branches)
+    --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
+    --putStrLn $ show branches
+    putStrLn "wlp below -------------------------------------- "
     putStrLn $ show wlp
 
 
@@ -38,6 +42,7 @@ preProcessProgram :: Program -> IO PreprocessResult
 preProcessProgram program = do
     putStrLn "Start Preprocess"
     let programBody = stmt program
+
     let uniqueVars = renameVars programBody M.empty
     let allNamesAndTypes = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
     putStrLn $ "allNamesAndTypes" ++ (show allNamesAndTypes)
