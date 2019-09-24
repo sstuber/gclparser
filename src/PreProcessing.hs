@@ -4,6 +4,8 @@ import GCLParser.GCLDatatype
 import Datatypes
 import Common
 
+import qualified Data.Map.Strict as M
+
 -- TODO function to get all var names for Z3
    -- structure of pre-processing
    -- change all var names
@@ -55,3 +57,37 @@ changeVarName name (IfThenElse expr stmt1 stmt2) = IfThenElse (replaceVar name (
 changeVarName name (While expr stmt) = While (replaceVar name (Var name) expr) (changeVarName name stmt)
 changeVarName name (Block decl stmt) = changeVarNames decl stmt
 changeVarName name (Skip) = Skip
+
+
+
+----------------------------------
+
+renameVars :: Stmt -> M.Map String String -> Stmt
+renameVars (Block decls stmt) varMap = Block newDecls (renameVars stmt newMap)
+    where
+    -- TODO make it such that it increases in in count 
+      newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (name++"1") acc  ) varMap decls
+      newDecls = map (\(VarDeclaration name ttype) -> VarDeclaration (replaceName name newMap) ttype) decls
+      replaceName n m = case M.lookup n m of
+        Nothing -> n
+        Just newName -> newName
+
+renameVars (Seq stmt1 stmt2) map = Seq (renameVars stmt1 map) (renameVars stmt2 map)
+renameVars (Assert e) map = Assert (replaceVarWithMap map e)
+renameVars (Assume e) map = Assume (replaceVarWithMap map e)
+renameVars (While e stmt) map = While (replaceVarWithMap map e) (renameVars stmt map)
+renameVars (IfThenElse e stmt1 stmt2) map = IfThenElse (replaceVarWithMap map e)
+                                        (renameVars stmt1 map)
+                                        (renameVars stmt2 map)
+renameVars (Assign name expr) map = Assign newName (replaceVarWithMap map expr)
+    where
+      newName = case M.lookup name map of
+          Nothing -> name
+          Just e   -> e
+renameVars (AAssign name index expr) map = AAssign newName (replaceVarWithMap map index) (replaceVarWithMap map expr)
+    where
+      newName = case M.lookup name map of
+          Nothing -> name
+          Just e   -> e
+renameVars Skip map = Skip
+

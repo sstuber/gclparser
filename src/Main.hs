@@ -6,6 +6,7 @@ import GCLParser.PrettyPrint
 import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
+import qualified Data.Map.Strict as M
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
