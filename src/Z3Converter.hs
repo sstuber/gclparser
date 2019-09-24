@@ -137,9 +137,24 @@ convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
 convertZ3ToExpr constMap (LitB x)           = mkBool x
 convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
 convertZ3ToExpr constMap e@(ArrayElem _ _)  = handleArrayElem constMap e
+-- Exists
+convertZ3ToExpr constMap (OpNeg (Forall var (OpNeg expr))) = do
+    varConst            <- mkFreshIntVar var
+    let intermediateMap = M.insert var varConst constMap
+    varApp              <- toApp varConst
+    exprAST             <- convertZ3ToExpr intermediateMap expr
+    finalExpr           <- mkExistsConst [] [varApp] exprAST
+    return finalExpr
+
 convertZ3ToExpr constMap (OpNeg x)          = convertZ3ToExpr constMap x >>= mkNot
 convertZ3ToExpr constMap (BinopExpr op x y) = (convertZ3ToExpr constMap x) >>= \res1 ->  (convertZ3ToExpr constMap y) >>= \res2 -> (z3ByOp op) res1 res2
-
+convertZ3ToExpr constMap (Forall var expr)     = do
+    varConst            <- mkFreshIntVar var
+    let intermediateMap = M.insert var varConst constMap
+    varApp              <- toApp varConst
+    exprAST             <- convertZ3ToExpr intermediateMap expr
+    finalExpr           <- mkForallConst [] [varApp] exprAST
+    return finalExpr
 
 
 handleArrayElem :: ConstMap -> Expr -> Z3 AST
