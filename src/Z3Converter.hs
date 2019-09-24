@@ -121,9 +121,18 @@ isArray _                               = False
 
 convertZ3ToExpr :: ConstMap -> Expr -> Z3 AST
 convertZ3ToExpr constMap (Var a)            = do
--- TODO this is not save yet
-    let (Just lookupConst) =  M.lookup a constMap
-    return lookupConst
+    let maybeLookup = M.lookup a constMap
+    let finalVar = case maybeLookup of
+          Nothing       -> error  ("var name not found -> " ++ a)
+          Just z3Var    -> z3Var
+    return finalVar
+convertZ3ToExpr constMap (SizeOf a )        = do
+    let varName = '#' : a
+    let maybeLookup = M.lookup varName constMap
+    let finalVar = case maybeLookup of
+          Nothing       -> error  ("var name not found -> " ++ varName)
+          Just z3Var    -> z3Var
+    return finalVar
 convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
 convertZ3ToExpr constMap (LitB x)           = mkBool x
 convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
