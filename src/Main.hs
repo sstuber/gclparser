@@ -6,6 +6,7 @@ import GCLParser.PrettyPrint
 import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
+import qualified Data.Map.Strict as M
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
@@ -26,7 +27,7 @@ main = do
     let branches = splitBranch proc uNFOLDLOOP
     let wlp = foldr generateWlp post (head branches)
     --putStrLn $ show (head branches)
-    --putStrLn $ show wlp
+    putStrLn $ show wlp
 
 
     putStrLn "hello"
@@ -37,11 +38,11 @@ preProcessProgram :: Program -> IO PreprocessResult
 preProcessProgram program = do
     putStrLn "Start Preprocess"
     let programBody = stmt program
-    let uniqueVars = renameLocalVars 1 programBody
-    let allNamesAndTypes = (input program) ++ (output program) ++ (findAllNamesAndTypes programBody)
+    let uniqueVars = renameVars programBody M.empty
+    let allNamesAndTypes = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
     putStrLn $ "allNamesAndTypes" ++ (show allNamesAndTypes)
 
-    let noBlocks = removeAllBlocks programBody
+    let noBlocks = removeAllBlocks uniqueVars
     let maybePreCon = fetchPre noBlocks
     let maybePostCon = fetchPost noBlocks
     noPreBody <- removePreCondition maybePreCon noBlocks
