@@ -3,6 +3,7 @@ module PreProcessing where
 import GCLParser.GCLDatatype
 import Datatypes
 import Common
+import Data.Char
 
 import qualified Data.Map.Strict as M
 
@@ -57,11 +58,17 @@ renameVars :: Stmt -> M.Map String String -> Stmt
 renameVars (Block decls stmt) varMap = Block newDecls (renameVars stmt newMap)
     where
     -- TODO make it such that it increases in in count 
-      newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (name++"1") acc  ) varMap decls
+      newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (updateName name) acc  ) varMap decls
       newDecls = map (\(VarDeclaration name ttype) -> VarDeclaration (replaceName name newMap) ttype) decls
       replaceName n m = case M.lookup n m of
         Nothing -> n
         Just newName -> newName
+      updateName n = if (length (takeWhile isDigit n)) > 0
+        then 
+          (show (1 + (read (takeWhile isDigit n)))) ++ (dropWhile isDigit n)
+        else
+          '1' : n
+
 
 renameVars (Seq stmt1 stmt2) map = Seq (renameVars stmt1 map) (renameVars stmt2 map)
 renameVars (Assert e) map = Assert (replaceVarWithMap map e)
