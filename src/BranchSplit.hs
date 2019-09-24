@@ -23,10 +23,7 @@ splitBranch s@(While exp stmt) n        = postFixLoops (concat (map (\xs-> repea
     where
         repeatLoop xs = map (\loopLength -> concat (take loopLength (repeat xs))) [0..n]
         postFixLoops xss = map (\xs -> xs ++ [Assume (OpNeg exp)]) xss
-
--- Not sure if this is the correct implementation of block, but needed it to test something.
-splitBranch (Block declarations stmt) n = splitBranch (changeVarNames declarations stmt) n
-splitBranch (Block [] stmt) n           = splitBranch stmt n
+--removed block cases since we already remove all instance of block before this function.
 splitBranch s n = [[s]]
 
 -- TODO trycatch
@@ -36,7 +33,7 @@ generatePost (Assert expr) = expr
 
 -- assuming this is: program path -> post condition
 generateWlp :: Stmt -> Expr -> Expr
-generateWlp (Skip) post                 = post
+generateWlp (Skip) post                = post
 generateWlp (Assume expr1) post        = BinopExpr Implication expr1 post
 generateWlp (Assign name expr) post    = replaceVar name expr post
 generateWlp (AAssign name expr newval) post = replaceVar name (RepBy (Var name) expr newval) post

@@ -21,13 +21,12 @@ main = do
     -- putStrLn $ show test
     (proc, pre, (Just post)) <- preProcessProgram program
 
+    putStrLn "TEST"
+    putStrLn $ show proc
     let branches = splitBranch proc uNFOLDLOOP
     let wlp = foldr generateWlp post (head branches)
-    putStrLn $ show (head branches)
-    putStrLn $ show wlp
-
-
-    --putStrLn $ show proc
+    --putStrLn $ show (head branches)
+    --putStrLn $ show wlp
 
 
     putStrLn "hello"
@@ -38,11 +37,16 @@ preProcessProgram :: Program -> IO PreprocessResult
 preProcessProgram program = do
     putStrLn "Start Preprocess"
     let programBody = stmt program
+    let uniqueVars = renameLocalVars 1 programBody
+    let allNamesAndTypes = (input program) ++ (output program) ++ (findAllNamesAndTypes programBody)
+    putStrLn $ "allNamesAndTypes" ++ (show allNamesAndTypes)
 
-    let maybePreCon = fetchPre programBody
-    let maybePostCon = fetchPost programBody
-    noPreBody <- removePreCondition maybePreCon programBody
+    let noBlocks = removeAllBlocks programBody
+    let maybePreCon = fetchPre noBlocks
+    let maybePostCon = fetchPost noBlocks
+    noPreBody <- removePreCondition maybePreCon noBlocks
     noPostBody <- removePostCondition maybePostCon noPreBody
+
 
     return (noPostBody, maybePreCon, maybePostCon)
 
