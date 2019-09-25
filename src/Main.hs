@@ -15,17 +15,14 @@ uNFOLDLOOP = 1
 
 main :: IO ()
 main = do
-    (test1) <- parseGCLfile "../examples/min.gcl"
-    putStrLn (show test1)
-    let (Right program) = test1
-    let test = splitBranch (stmt program) uNFOLDLOOP
+    (parseResult) <- parseGCLfile "../examples/min.gcl"
+    putStrLn "ParseResult"
+    putStrLn (show parseResult)
+    putStrLn ""
+    let (Right program) = parseResult
+    (stmts, pre, (Just post), varDecls) <- preProcessProgram program
 
-    -- putStrLn $ show test
-    (proc, pre, (Just post), varDecls) <- preProcessProgram program
-
-    putStrLn "TEST"
-    putStrLn $ show proc
-    let branches = splitBranch proc uNFOLDLOOP
+    let branches = splitBranch stmts uNFOLDLOOP
 
     let wlp = foldr generateWlp post (head branches)
     putStrLn $ show (head branches)
@@ -43,27 +40,46 @@ main = do
 
     putStrLn "hello"
 
+processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
+processSinglePath varDecls pre post path = do
+    let wlp = foldr generateWlp post path
+    let finalWlp = case pre of
+          Nothing -> wlp
+          Just x  -> generateWlp (Assume x) wlp
+    
+    isExprValid finalWlp varDecls
+
 
 
 preProcessProgram :: Program -> IO PreprocessResult
 preProcessProgram program = do
     putStrLn "Start Preprocess"
+    putStrLn "------------------------------------------------------------------- "
     let programBody = stmt program
 
+    putStrLn "Process local variables"
     let uniqueVars = renameVars programBody M.empty
     let allVarDeclarations = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
-    putStrLn $ "allNamesAndTypes " ++ (show allVarDeclarations)
+    putStrLn $ (++) "Total amount of (local) variables: "  $ show . length $ allVarDeclarations
+    -- TODO maybe pretty print all vars
+    putStrLn ""
 
+    putStrLn "Procces pre- and postconditions"
     let noBlocks = removeAllBlocks uniqueVars
     let maybePreCon = fetchPre noBlocks
     let maybePostCon = fetchPost noBlocks
     noPreBody <- removePreCondition maybePreCon noBlocks
-    noPostBody <- removePostCondition maybePostCon noPreBody
+    finalBody <- removePostCondition maybePostCon noPreBody
+    putStrLn ""
+    putStrLn "Preprocessed body"
+    putStrLn $ show finalBody
+    putStrLn ""
 
-    -- TODO clean up
-    --varDecls <- fetchVarDecls program noPostBody
 
-    return (noPostBody, maybePreCon, maybePostCon, allVarDeclarations)
+    putStrLn "End Preprocess"
+    putStrLn "------------------------------------------------------------------- "
+
+    return (finalBody, maybePreCon, maybePostCon, allVarDeclarations)
 
 fetchVarDecls :: Program -> Stmt -> IO [VarDeclaration]
 fetchVarDecls program stmt = do
@@ -81,7 +97,7 @@ removePreCondition maybePreCon body = do
                 putStrLn "No precondition found"
                 return body
             Just x  -> do
-                putStrLn $ "Precondition found -> " ++ (show x)
+                putStrLn $ "Precondition found: " ++ (show x)
                 let fixedBody = removePre body
                 return fixedBody
     return newBody
@@ -93,7 +109,7 @@ removePostCondition maybePostCon body = do
                 putStrLn "No postcondition found"
                 error "No postcondition"
             Just x -> do
-                putStrLn $ "Postcondition found -> " ++ (show x)
+                putStrLn $ "Postcondition found: " ++ (show x)
                 let fixedBody = removePost body
                 return fixedBody
     return newBody

@@ -44,15 +44,15 @@ testVars = [
 --------------------------------------------------------------------------------------------------------
 
 -- unsat -> valid as we negate our expr
-isExprValid  :: Expr -> [VarDeclaration] -> IO (Either Bool String)
+isExprValid  :: Expr -> [VarDeclaration] -> IO Z3Validation
 isExprValid expr varDecls = do
   result <- evalZ3 (evalExpr expr varDecls)
   return (isValid result)
     where
       isValid res = case res of
-          Unsat -> Left True
-          Sat   -> Left False
-          Undef -> Right "expression could not be validated"
+          Unsat -> Valid
+          Sat   -> UnValid
+          Undef -> Z3undef
 
 
 ioPrint :: String -> Z3 ()
