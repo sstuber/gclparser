@@ -42,6 +42,10 @@ testVars = [
 --------------------------------------------------------------------------------------------------------
 -- main function to use form this file
 --------------------------------------------------------------------------------------------------------
+areExprValid :: [Expr] -> [VarDeclaration] -> [IO Z3Validation]
+areExprValid (expr:t) vardec = [(isExprValid expr vardec)] ++ (areExprValid t vardec)
+areExprValid [expr] vardec   = [isExprValid expr vardec]
+
 
 -- unsat -> valid as we negate our expr
 isExprValid  :: Expr -> [VarDeclaration] -> IO Z3Validation
@@ -59,7 +63,6 @@ ioPrint :: String -> Z3 ()
 ioPrint = liftIO . putStrLn
 --evaluateWlp :: Expr -> [VarDeclaration]-> Bool
 --evaluateWlp expr varDecls = evalZ3 ()
-
 
 
 evalExpr ::  Expr -> [VarDeclaration] -> Z3 Result
@@ -119,6 +122,7 @@ isArray (VarDeclaration _ (AType _)) = True
 isArray _                               = False
 
 
+-- Convert expr to Z3 ?
 convertZ3ToExpr :: ConstMap -> Expr -> Z3 AST
 convertZ3ToExpr constMap (Var a)            = do
     let maybeLookup = M.lookup a constMap
