@@ -7,20 +7,22 @@ import Datatypes
 import PreProcessing
 import qualified Data.Map.Strict as M
 import Z3Converter
+import System.Clock
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
 
 -- Benchmarks
 -- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
--- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
--- array assignment optimization (see below), and total used time.
--- TODO Total size of the formulas that you have to verify. We’ll define size of a formula f to be the number of atoms in
--- f . An atom is a maximal expression that does not contain a boolean operator. For example the formula 1<x ∧ 0<x
--- has two atoms, and its size is 2.
+{- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
+    array assignment optimization (see below), and total used time. -}
+{- TODO Total size of the formulas that you have to verify. We’ll define size of a formula f to be the number of atoms in
+    f . An atom is a maximal expression that does not contain a boolean operator. For example the formula 1<x ∧ 0<x
+    has two atoms, and its size is 2. -}
 
 main :: IO ()
 main = do
+    let clock = ProcessCPUTime
     (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
     putStrLn "ParseResult"
     putStrLn (show parseResult)
@@ -37,11 +39,16 @@ main = do
     putStrLn "wlp below -------------------------------------- "
     putStrLn $ show (head wlp)
 
+
+
     let isValid = areExprValid wlp varDecls
     isValidHead <- (head isValid)
     putStrLn $ show isValidHead
 
     putStrLn "hello"
+
+
+-- checkValidityOfProgram :: [Expr] -> PostCon ->
 
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
 processSinglePath varDecls pre post path = do
