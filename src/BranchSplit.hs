@@ -4,6 +4,7 @@ import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
 import Common
+import Z3Converter
 
 -- TODO add means to process arrays
 -- TODO get programs in the right structure to check validity
@@ -39,16 +40,48 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         ifSide   = BinopExpr Implication g (generateWlp s1 post)
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
-{-
-= Skip
-    | Assert     Expr
-    | Assume     Expr
-    | Assign     String           Expr
-    | AAssign    String           Expr   Expr
-    | DrefAssign String           Expr
-    | Seq        Stmt             Stmt
-    | IfThenElse Expr             Stmt   Stmt
-    | While      Expr             Stmt
-    | Block      [VarDeclaration] Stmt
-    | TryCatch   String           Stmt   Stmt
--}
+
+analyseTree :: [ProgramPath] -> Stmt -> Int -> [ProgramPath]
+analyseTree xs s@(Seq s1 s2) n  = analyseTree leftResult s2 n
+    where
+      leftResult = analyseTree xs s1 n
+
+analyseTree xs s@(IfThenElse g s1 s2) n = ifStmt ++ elseStmt
+   where
+      ifStmt = analyseTree (map ((:) (Assume g))  xs) s1 n
+      elseStmt = analyseTree (map ((:) (Assume (OpNeg g))) xs) s2 n
+
+analyseTree xs s@(While exp stmt) n = (preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
+    where
+        scanWhile = scanl (\acc _ -> analyseTree (preFixLoops (Assume  exp) acc) stmt n) xs [1..n]
+        preFixLoops v []  = [[v]]
+        preFixLoops v xss  = map ((:) v) xss
+analyseTree [] s n = [[s]]
+analyseTree xs s n = map ((:) s) xs
+
+
+isBranchValid :: ProgramPath -> [VarDeclaration] -> Stmt -> Expr -> IO Bool
+isBranchValid path varDecls pre g = return =<< isValid =<< isExprValid finalWlp varDecls
+    where
+        expr = foldl (flip generateWlpGuard) g path
+        finalWlp = generateWlpGuard pre expr
+        isValid (Valid) = return True
+        isValid _ = return False
+
+
+
+
+generateWlpGuard :: Stmt -> Expr -> Expr
+generateWlpGuard (Skip) post                = post
+generateWlpGuard (Assume expr1) post        = BinopExpr And expr1 post
+generateWlpGuard (Assign name expr) post    = replaceVar name expr post
+generateWlpGuard (AAssign name expr newval) post = replaceVar name (RepBy (Var name) expr newval) post
+-- TODO: This does not hold for the first assert, should make an exception for that. Maybe type match on []?
+generateWlpGuard (Assert expr1) post        = BinopExpr And expr1 post
+-- Is sequence needed? Seems like we already deal with this in splitBranch. Maybe we can use sequence instead of a list?
+-- generateWlpGuard (Seq s1 s2) a@(Just expr2) = generateWlpGuard s1 (generateWlpGuard s2 a)
+-- generateWlpGuard (Block [decl:] stmt) expr = replaceVar generatename
+generateWlpGuard (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
+    where
+        ifSide   = BinopExpr Implication g (generateWlpGuard s1 post)
+        elseSide = BinopExpr Implication (OpNeg g)  (generateWlpGuard s2 post)

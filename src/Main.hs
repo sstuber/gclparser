@@ -36,8 +36,11 @@ main = do
 
     let branches = splitBranch stmts uNFOLDLOOP
 
-    let wlp = map (foldr generateWlp post) branches
-    --putStrLn $ show (head branches)
+
+    let wlp = foldr generateWlp post (head branches)
+    let test = analyseTree [] stmts uNFOLDLOOP
+    putStrLn $ show (length test)
+    putStrLn $ show ( test)
     --putStrLn $ show (length branches)
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
