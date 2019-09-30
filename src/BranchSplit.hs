@@ -4,6 +4,7 @@ import GCLParser.GCLDatatype
 import Datatypes
 import PreProcessing
 import Common
+import Control.Monad
 import Z3Converter
 
 -- TODO add means to process arrays
@@ -41,23 +42,28 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 
-analyseTree :: [ProgramPath] -> Stmt -> Int -> [ProgramPath]
-analyseTree xs s@(Seq s1 s2) n  = analyseTree leftResult s2 n
-    where
-      leftResult = analyseTree xs s1 n
+analyseTree :: [ProgramPath] -> Stmt -> Int -> IO [ProgramPath]
+analyseTree xs s@(Seq s1 s2) n  = do
+    leftResult <- analyseTree xs s1 n
+    analyseTree leftResult s2 n
 
-analyseTree xs s@(IfThenElse g s1 s2) n = ifStmt ++ elseStmt
-   where
-      ifStmt = analyseTree (map ((:) (Assume g))  xs) s1 n
-      elseStmt = analyseTree (map ((:) (Assume (OpNeg g))) xs) s2 n
-
-analyseTree xs s@(While exp stmt) n = (preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
-    where
-        scanWhile = scanl (\acc _ -> analyseTree (preFixLoops (Assume  exp) acc) stmt n) xs [1..n]
+analyseTree xs s@(IfThenElse g s1 s2) n = do
+    ifStmt <- analyseTree (map ((:) (Assume g))  xs) s1 n
+    elseStmt <- analyseTree (map ((:) (Assume (OpNeg g))) xs) s2 n
+    return $ ifStmt ++ elseStmt
+analyseTree xs s@(While exp stmt) n = do
+    let emptyLoop = (preFixLoops (Assume (OpNeg exp)) xs)
+    bodyResult <- scanWhile
+    return $  emptyLoop ++ (preFixLoops (Assume (OpNeg exp)) (concat bodyResult))
+      where
+        scanWhile = foldM scanfn [xs] [1..n]
+        scanfn acc _ = analyseTree (preFixLoops (Assume  exp) (head acc)) stmt n >>= \res -> return (res : acc)
         preFixLoops v []  = [[v]]
         preFixLoops v xss  = map ((:) v) xss
-analyseTree [] s n = [[s]]
-analyseTree xs s n = map ((:) s) xs
+
+--(preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
+analyseTree [] s n = return [[s]]
+analyseTree xs s n = return $ map ((:) s) xs
 
 
 isBranchValid :: ProgramPath -> [VarDeclaration] -> Stmt -> Expr -> IO Bool
