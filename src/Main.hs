@@ -28,20 +28,25 @@ main = do
     starttime <- getTime clock
 
     (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
+
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
     let (Right program) = parseResult
-    (stmts, pre, (Just post), varDecls) <- preProcessProgram program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
 
     let branches = splitBranch stmts uNFOLDLOOP
 
-    let wlp = map (foldr generateWlp post) branches
-    --putStrLn $ show (head branches)
+
+    let wlp = foldr generateWlp post (head branches)
+    putStrLn " testesttest==========================================="
+    test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
+    putStrLn $ show (length test)
+    putStrLn $ show ( test)
     --putStrLn $ show (length branches)
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
-    putStrLn $ show (head wlp)
+    putStrLn $ show wlp
     let clock2 = Monotonic
 
 
