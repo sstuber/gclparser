@@ -9,6 +9,7 @@ import qualified Data.Map.Strict as M
 import Z3Converter
 import System.Clock
 import Control.StopWatch
+import Common
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
@@ -24,7 +25,7 @@ uNFOLDLOOP = 1
 main :: IO ()
 main = do
     let clock = Monotonic
-
+    starttime <- getTime clock
 
     (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
     putStrLn "ParseResult"
@@ -44,16 +45,20 @@ main = do
     let clock2 = Monotonic
 
 
-    isValid <- stopWatch (checkValidityOfProgram post branches varDecls)
-    putStrLn $ show $ snd isValid
-    putStrLn $ show (map fst (fst isValid))
+    (isValid, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
+    putStrLn "----------------- Time Metrics ------------------"
+    putStrLn $ show (sec validationTime) ++ " Seconds; " ++ show (nsec validationTime) ++ " Nanoseconds; Runtime on checking validity;"
     time <- getTime clock
-    putStrLn $ show time
+    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
+                      ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
+
+    putStrLn "Paths check on validity:"
+    putStrLn $ show $ maximum $ map trd3 isValid
     putStrLn "hello"
 
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] ->  IO[(Bool, ProgramPath)]
-checkValidityOfProgram post [h] vardec = do
+checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
+checkValidityOfProgram post [h] vardec count = do
     validity <- (isExprValid (foldr generateWlp post h) vardec)
     let val = case validity of
               Valid ->
@@ -62,8 +67,8 @@ checkValidityOfProgram post [h] vardec = do
                   False
               Z3undef ->
                   False
-    return [(val, h)]
-checkValidityOfProgram post (h : t) vardec = do
+    return [(val, h, count)]
+checkValidityOfProgram post (h : t) vardec count = do
     validity <- (isExprValid (foldr generateWlp post h) vardec)
     let val = case validity of
           Valid ->
@@ -72,8 +77,12 @@ checkValidityOfProgram post (h : t) vardec = do
               False
           Z3undef ->
               False
-    result <- (checkValidityOfProgram post t vardec)
-    return $ (val, h) : result
+    res <- if val then do
+          result <- (checkValidityOfProgram post t vardec (count + 1))
+          return result
+        else do
+          return []
+    return $ (val, h, count) : res
 
 
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation

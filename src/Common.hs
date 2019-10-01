@@ -3,6 +3,7 @@ module Common where
 import GCLParser.GCLDatatype
 
 import qualified Data.Map.Strict as M
+import System.Clock
 
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
@@ -45,4 +46,13 @@ replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = BinopExpr op replacedEx
         replacedExpr1 = replaceVarWithMap varMap expr1
         replacedExpr2 = replaceVarWithMap varMap expr2
 replaceVarWithMap varMap (Forall i expr)                             = Forall i (replaceVarWithMap varMap expr)
+
+fst3 :: (a, b, c) -> a
+fst3 (a, b, c) = a
+
+snd3 :: (a, b, c) -> b
+snd3 (a, b, c) = b
+
+trd3 :: (a, b, c) -> c
+trd3 (a, b, c) = c
 
