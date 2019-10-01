@@ -46,7 +46,7 @@ main = do
     --putStrLn $ show (length branches)
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
-    putStrLn $ show (head wlp)
+    putStrLn $ show wlp
     let clock2 = Monotonic
 
 
