@@ -61,32 +61,20 @@ main = do
 
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
-checkValidityOfProgram post [h] vardec count = do
-    validity <- (isExprValid (foldr generateWlp post h) vardec)
-    let val = case validity of
-              Valid ->
-                  True
-              UnValid ->
-                  False
-              Z3undef ->
-                  False
-    return [(val, h, count)]
+checkValidityOfProgram post [] vardec count = return []
 checkValidityOfProgram post (h : t) vardec count = do
-    validity <- (isExprValid (foldr generateWlp post h) vardec)
-    let val = case validity of
-          Valid ->
-              True
-          UnValid ->
-              False
-          Z3undef ->
-              False
-    res <- if val then do
+    let wlp   = foldr generateWlp post h
+
+    z3Result  <- (isExprValid wlp vardec)
+    let validity = z3Result == Valid
+
+    res       <- if validity then do
           result <- (checkValidityOfProgram post t vardec (count + 1))
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
-    return $ (val, h, count) : res
+    return $ (validity, h, count) : res
 
 
 countAtoms :: Expr -> Int
@@ -98,7 +86,7 @@ countAtoms (Parens expr) = countAtoms expr
 countAtoms (Forall _ expr) = countAtoms expr
 countAtoms _ = 1
 
-
+-- possibly not usefull
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
 processSinglePath varDecls pre post path = do
     let wlp = foldr generateWlp post path
