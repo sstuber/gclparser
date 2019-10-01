@@ -46,15 +46,21 @@ main = do
 
 
     (isValid, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
+
+    putStrLn "Paths checked on validity:"
+    putStrLn $ show $ maximum $ map trd3 isValid
+
+
     putStrLn "----------------- Time Metrics ------------------"
-    putStrLn $ show (sec validationTime) ++ " Seconds; " ++ show (nsec validationTime) ++ " Nanoseconds; Runtime on checking validity;"
+    putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
     time <- getTime clock
     putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
-                      ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
+                          ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
 
-    putStrLn "Paths check on validity:"
-    putStrLn $ show $ maximum $ map trd3 isValid
     putStrLn "hello"
+
+
+
 
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
@@ -81,6 +87,7 @@ checkValidityOfProgram post (h : t) vardec count = do
           result <- (checkValidityOfProgram post t vardec (count + 1))
           return result
         else do
+          putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
     return $ (val, h, count) : res
 
