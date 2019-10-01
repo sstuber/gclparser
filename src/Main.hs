@@ -27,7 +27,7 @@ main = do
     let clock = Monotonic
     starttime <- getTime clock
 
-    (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/bsort.gcl"
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
@@ -36,9 +36,10 @@ main = do
 
     let branches = splitBranch stmts uNFOLDLOOP
 
+
     let wlp = map (foldr generateWlp post) branches
-    --putStrLn $ show (head branches)
-    --putStrLn $ show (length branches)
+    putStrLn $ "Total number of branches: " ++ (show (length branches))
+    putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
     putStrLn $ show (head wlp)
@@ -58,9 +59,6 @@ main = do
                           ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
 
     putStrLn "hello"
-
-
-
 
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
@@ -90,6 +88,16 @@ checkValidityOfProgram post (h : t) vardec count = do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
     return $ (val, h, count) : res
+
+
+countAtoms :: Expr -> Int
+countAtoms (BinopExpr And expr1 expr2) = (countAtoms expr1) + (countAtoms expr2)
+countAtoms (BinopExpr Or expr1 expr2) = (countAtoms expr1) + (countAtoms expr2)
+countAtoms (BinopExpr Implication expr1 expr2) = (countAtoms expr1) + (countAtoms expr2)
+countAtoms (OpNeg expr) = countAtoms expr
+countAtoms (Parens expr) = countAtoms expr
+countAtoms (Forall _ expr) = countAtoms expr
+countAtoms _ = 1
 
 
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
