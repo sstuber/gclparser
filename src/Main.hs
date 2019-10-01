@@ -8,6 +8,7 @@ import PreProcessing
 import qualified Data.Map.Strict as M
 import Z3Converter
 import System.Clock
+import Control.StopWatch
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
@@ -22,7 +23,9 @@ uNFOLDLOOP = 1
 
 main :: IO ()
 main = do
-    let clock = ProcessCPUTime
+    let clock = Monotonic
+
+
     (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
     putStrLn "ParseResult"
     putStrLn (show parseResult)
@@ -33,22 +36,45 @@ main = do
     let branches = splitBranch stmts uNFOLDLOOP
 
     let wlp = map (foldr generateWlp post) branches
-    putStrLn $ show (head branches)
+    --putStrLn $ show (head branches)
     --putStrLn $ show (length branches)
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
     putStrLn $ show (head wlp)
+    let clock2 = Monotonic
 
 
-
-    let isValid = areExprValid wlp varDecls
-    isValidHead <- (head isValid)
-    putStrLn $ show isValidHead
-
+    isValid <- stopWatch (checkValidityOfProgram post branches varDecls)
+    putStrLn $ show $ snd isValid
+    putStrLn $ show (map fst (fst isValid))
+    time <- getTime clock
+    putStrLn $ show time
     putStrLn "hello"
 
 
--- checkValidityOfProgram :: [Expr] -> PostCon ->
+checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] ->  IO[(Bool, ProgramPath)]
+checkValidityOfProgram post [h] vardec = do
+    validity <- (isExprValid (foldr generateWlp post h) vardec)
+    let val = case validity of
+              Valid ->
+                  True
+              UnValid ->
+                  False
+              Z3undef ->
+                  False
+    return [(val, h)]
+checkValidityOfProgram post (h : t) vardec = do
+    validity <- (isExprValid (foldr generateWlp post h) vardec)
+    let val = case validity of
+          Valid ->
+              True
+          UnValid ->
+              False
+          Z3undef ->
+              False
+    result <- (checkValidityOfProgram post t vardec)
+    return $ (val, h) : result
+
 
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
 processSinglePath varDecls pre post path = do
@@ -56,7 +82,7 @@ processSinglePath varDecls pre post path = do
     let finalWlp = case pre of
           Nothing -> wlp
           Just x  -> generateWlp (Assume x) wlp
-    
+
     isExprValid finalWlp varDecls
 
 
