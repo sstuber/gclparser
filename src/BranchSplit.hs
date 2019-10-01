@@ -43,22 +43,22 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 
-analyseTree :: [VarDeclaration] -> PreCon -> [ProgramPath] -> Stmt -> Int -> IO [ProgramPath]
-analyseTree varDecls pre xs s@(Seq s1 s2) n  = do
-    leftResult <- analyseTree varDecls pre xs s1 n
-    analyseTree varDecls pre leftResult s2 n
+analyseTree :: [VarDeclaration] -> [ProgramPath] -> Stmt -> Int -> IO [ProgramPath]
+analyseTree varDecls xs s@(Seq s1 s2) n  = do
+    leftResult <- analyseTree varDecls xs s1 n
+    analyseTree varDecls leftResult s2 n
 
-analyseTree varDecls pre xs s@(IfThenElse g s1 s2) n = do
+analyseTree varDecls xs s@(IfThenElse g s1 s2) n = do
 
-    validIfBranches <- filterM (isBranchValid varDecls (Assume pre) g) xs
+    validIfBranches <- filterM (isBranchValid varDecls g) xs
     putStrLn $ show validIfBranches
-    ifStmt    <- analyseTree varDecls pre (map ((:) (Assume g))  validIfBranches) s1 n
+    ifStmt    <- analyseTree varDecls (map ((:) (Assume g))  validIfBranches) s1 n
     putStrLn $ show ifStmt
 
-    validElseBranches <- filterM (isBranchValid varDecls (Assume pre) (OpNeg g)) xs
-    elseStmt  <- analyseTree varDecls pre (map ((:) (Assume (OpNeg g))) validElseBranches) s2 n
+    validElseBranches <- filterM (isBranchValid varDecls  (OpNeg g)) xs
+    elseStmt  <- analyseTree varDecls (map ((:) (Assume (OpNeg g))) validElseBranches) s2 n
     return $ ifStmt ++ elseStmt
-analyseTree varDecls pre xs s@(While exp stmt) n = do
+analyseTree varDecls xs s@(While exp stmt) n = do
     emptyLoopPath <- filterRes xs (OpNeg exp)
     let emptyLoop   = (preFixLoops (Assume (OpNeg exp)) emptyLoopPath)
 
@@ -67,23 +67,23 @@ analyseTree varDecls pre xs s@(While exp stmt) n = do
 
     return $  emptyLoop ++ (preFixLoops (Assume (OpNeg exp)) bodyPaths)
       where
-        filterRes list g    = filterM (isBranchValid varDecls (Assume pre) g) list
+        filterRes list g    = filterM (isBranchValid varDecls g) list
         scanWhile           = foldM scanfn [xs] [1..n]
         scanfn acc _        = do
             -- filter the paths on is feasible and continue loop on feasible paths
             paths <- filterRes (head acc) exp
-            res <- analyseTree varDecls pre (preFixLoops (Assume exp) paths) stmt n
+            res <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n
             return (res : acc)
         preFixLoops v []    = [[v]]
         preFixLoops v xss   = map ((:) v) xss
 
 --(preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
---analyseTree varDecls pre [] s n = return [[s]]
-analyseTree varDecls pre xs s n = return $ map ((:) s) xs
+--analyseTree varDecls [] s n = return [[s]]
+analyseTree varDecls xs s n = return $ map ((:) s) xs
 
 
-isBranchValid :: [VarDeclaration] -> Stmt -> Expr -> ProgramPath -> IO Bool
-isBranchValid varDecls pre g path = return =<< isSat =<< isGuardSat finalWlp varDecls
+isBranchValid :: [VarDeclaration] -> Expr -> ProgramPath -> IO Bool
+isBranchValid varDecls g path = return =<< isSat =<< isGuardSat finalWlp varDecls
     where
         finalWlp = foldl (flip generateWlpGuard) g path
         isSat (Sat) = return True
