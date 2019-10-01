@@ -137,7 +137,7 @@ convertZ3ToExpr constMap (SizeOf a )        = do
           Nothing       -> error  ("var name not found -> " ++ varName)
           Just z3Var    -> z3Var
     return finalVar
-convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
+convertZ3ToExpr constMap (LitI x)           = mkIntNum x
 convertZ3ToExpr constMap (LitB x)           = mkBool x
 convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
 convertZ3ToExpr constMap e@(ArrayElem _ _)  = handleArrayElem constMap e
