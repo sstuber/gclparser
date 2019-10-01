@@ -24,12 +24,19 @@ main = do
     let clock = Monotonic
     starttime <- getTime clock
 
-    (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
+    (parseResult) <- parseGCLfile "../examples/E.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
+
     let (Right program) = parseResult
+
+    processProgram program starttime clock
+
+{-
+
+
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
 
     let branches = splitBranch stmts uNFOLDLOOP
@@ -45,10 +52,10 @@ main = do
     let clock2 = Monotonic
 
 
-    (isValid, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
+    (pathData, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
 
     putStrLn "Paths checked on validity:"
-    putStrLn $ show $ maximum $ map trd3 isValid
+    putStrLn $ show $ length pathData
 
 
     putStrLn "----------------- Time Metrics ------------------"
@@ -56,9 +63,35 @@ main = do
     time <- getTime clock
     putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
                           ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
-
+-}
     putStrLn "hello"
 
+processProgram :: Program -> TimeSpec -> Clock -> IO ()
+processProgram program startTime clock= do
+    -- preprocess program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
+
+    -- every path ends with the precondition
+    let branchRoot = [[(Assume pre)]]
+    -- get all the feasible branches
+    programPaths <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
+
+    -- validate all feasible paths
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls 1)
+
+    putStrLn "Paths checked on validity:"
+    putStrLn $ show $ length pathDataList
+
+    displayTimeMetrics validationTime startTime clock
+    return ()
+
+displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
+displayTimeMetrics validationTime startTime clock = do
+    putStrLn "----------------- Time Metrics ------------------"
+    putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
+    time <- getTime clock
+    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
+                          ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
 checkValidityOfProgram post [] vardec count = return []
