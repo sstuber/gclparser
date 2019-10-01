@@ -64,23 +64,40 @@ ioPrint = liftIO . putStrLn
 --evaluateWlp :: Expr -> [VarDeclaration]-> Bool
 --evaluateWlp expr varDecls = evalZ3 ()
 
+isGuardSat:: Expr -> [VarDeclaration] -> IO Result
+isGuardSat expr varDecls = do
+    result <- evalZ3 (evalGuard expr varDecls)
+    return result
+
+evalGuard :: Expr -> [VarDeclaration] -> Z3 Result
+evalGuard expr varDecls = do
+    varDeclMap <- foldM createZVar M.empty varDecls
+    exprAst <- convertZ3ToExpr varDeclMap expr
+    ioPrint "in eval guard -----------------------------"
+    ioPrint $ show expr
+    astString <- astToString exprAst
+    ioPrint astString
+    result <- (assert exprAst >> check)
+    ioPrint $ show result
+    return result
 
 evalExpr ::  Expr -> [VarDeclaration] -> Z3 Result
 evalExpr expr varDecls = do
     varDeclMap <- foldM createZVar M.empty varDecls
 
-    ioPrint "var map"
-    let declAsts = M.elems varDeclMap
-    printresult <- forM declAsts (\decl -> do
-          declStr <- astToString decl
-          ioPrint declStr
-      )
-
+    --ioPrint "var map"
+    --let declAsts = M.elems varDeclMap
+    --printresult <- forM declAsts (\decl -> do
+    --      declStr <- astToString decl
+    --      ioPrint declStr
+    --  )
+    ioPrint "in eval Expr -----------"
+    ioPrint $ show expr
     exprAst <- convertZ3ToExpr varDeclMap expr
     astString <- astToString exprAst
     ioPrint astString
-    -- result <- (assert exprAst >> check)
-    -- ioPrint $ show result
+    result <- (assert exprAst >> check)
+    ioPrint $ show result
     result <- assertExpr exprAst
     ioPrint $ show result
 
@@ -137,7 +154,7 @@ convertZ3ToExpr constMap (SizeOf a )        = do
           Nothing       -> error  ("var name not found -> " ++ varName)
           Just z3Var    -> z3Var
     return finalVar
-convertZ3ToExpr constMap (LitI x)           = (mkIntSymbol x) >>= mkIntVar
+convertZ3ToExpr constMap (LitI x)           = mkIntNum x
 convertZ3ToExpr constMap (LitB x)           = mkBool x
 convertZ3ToExpr constMap (Parens x)         = convertZ3ToExpr constMap x
 convertZ3ToExpr constMap e@(ArrayElem _ _)  = handleArrayElem constMap e

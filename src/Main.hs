@@ -24,12 +24,13 @@ main = do
     let clock = Monotonic
     starttime <- getTime clock
 
-    (parseResult) <- parseGCLfile "examples/benchmark/bsort.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
+
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
     let (Right program) = parseResult
-    (stmts, pre, (Just post), varDecls) <- preProcessProgram program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
 
     let branches = splitBranch stmts uNFOLDLOOP
 
@@ -37,9 +38,10 @@ main = do
     let wlp = map (foldr generateWlp post) branches
     putStrLn $ "Total number of branches: " ++ (show (length branches))
     putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
+    test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
     --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
     putStrLn "wlp below -------------------------------------- "
-    putStrLn $ show (head wlp)
+    putStrLn $ show wlp
     let clock2 = Monotonic
 
 
