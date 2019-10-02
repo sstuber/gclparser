@@ -18,6 +18,9 @@ uNFOLDLOOP = 1
 -- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
 {- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
     array assignment optimization (see below), and total used time. -}
+-- TODO Write a function that tests programs and incorporates the variable N.
+-- TODO Heuristics on and off.
+-- TODO Implement extra heuristics, possibly from papers.
 
 main :: IO ()
 main = do
