@@ -27,12 +27,19 @@ main = do
     let clock = Monotonic
     starttime <- getTime clock
 
-    (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
+    (parseResult) <- parseGCLfile "../examples/E.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
+
     let (Right program) = parseResult
+
+    processProgram program starttime clock
+
+{-
+
+
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
 
     let branches = splitBranch stmts uNFOLDLOOP
@@ -48,10 +55,10 @@ main = do
     let clock2 = Monotonic
 
 
-    (isValid, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
+    (pathData, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
 
     putStrLn "Paths checked on validity:"
-    putStrLn $ show $ maximum $ map trd3 isValid
+    putStrLn $ show $ length pathData
 
 
     putStrLn "----------------- Time Metrics ------------------"
@@ -59,37 +66,51 @@ main = do
     time <- getTime clock
     putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
                           ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
-
+-}
     putStrLn "hello"
 
+processProgram :: Program -> TimeSpec -> Clock -> IO ()
+processProgram program startTime clock= do
+    -- preprocess program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
+
+    -- every path ends with the precondition
+    let branchRoot = [[(Assume pre)]]
+    -- get all the feasible branches
+    programPaths <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
+
+    -- validate all feasible paths
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls 1)
+
+    putStrLn "Paths checked on validity:"
+    putStrLn $ show $ length pathDataList
+
+    displayTimeMetrics validationTime startTime clock
+    return ()
+
+displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
+displayTimeMetrics validationTime startTime clock = do
+    putStrLn "----------------- Time Metrics ------------------"
+    putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
+    time <- getTime clock
+    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
+                          ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
-checkValidityOfProgram post [h] vardec count = do
-    validity <- (isExprValid (foldr generateWlp post h) vardec)
-    let val = case validity of
-              Valid ->
-                  True
-              UnValid ->
-                  False
-              Z3undef ->
-                  False
-    return [(val, h, count)]
+checkValidityOfProgram post [] vardec count = return []
 checkValidityOfProgram post (h : t) vardec count = do
-    validity <- (isExprValid (foldr generateWlp post h) vardec)
-    let val = case validity of
-          Valid ->
-              True
-          UnValid ->
-              False
-          Z3undef ->
-              False
-    res <- if val then do
+    let wlp   = foldr generateWlp post h
+
+    z3Result  <- (isExprValid wlp vardec)
+    let validity = z3Result == Valid
+
+    res       <- if validity then do
           result <- (checkValidityOfProgram post t vardec (count + 1))
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
-    return $ (val, h, count) : res
+    return $ (validity, h, count) : res
 
 
 countAtoms :: Expr -> Int
@@ -101,7 +122,7 @@ countAtoms (Parens expr) = countAtoms expr
 countAtoms (Forall _ expr) = countAtoms expr
 countAtoms _ = 1
 
-
+-- possibly not usefull
 processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
 processSinglePath varDecls pre post path = do
     let wlp = foldr generateWlp post path
