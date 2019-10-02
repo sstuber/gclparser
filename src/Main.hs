@@ -96,7 +96,7 @@ displayTimeMetrics validationTime startTime clock = do
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
 checkValidityOfProgram post [] vardec count = return []
 checkValidityOfProgram post (h : t) vardec count = do
-    let wlp   = foldr generateWlp post h
+    let wlp   = foldl (flip generateWlp) post h
 
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
