@@ -14,6 +14,8 @@ import Common
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
 
+ifDepth = 6
+
 -- Benchmarks
 -- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
 {- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
@@ -77,8 +79,8 @@ processProgram program startTime clock= do
     -- every path ends with the precondition
     let branchRoot = [[(Assume pre)]]
     -- get all the feasible branches
-    programPaths <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-
+    (testDepth, programPaths) <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP ifDepth
+    putStrLn $ show testDepth
     -- validate all feasible paths
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls 1)
 

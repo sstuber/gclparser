@@ -43,44 +43,49 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 
-analyseTree :: [VarDeclaration] -> [ProgramPath] -> Stmt -> Int -> IO [ProgramPath]
-analyseTree varDecls xs s@(Seq s1 s2) n  = do
-    leftResult <- analyseTree varDecls xs s1 n
-    analyseTree varDecls leftResult s2 n
+analyseTree :: [VarDeclaration] -> [ProgramPath] -> Stmt -> Int -> Int-> IO (Int, [ProgramPath])
+analyseTree varDecls xs s@(Seq s1 s2) n ifDepth = do
+    (ifDepth1, leftResult) <- analyseTree varDecls xs s1 n ifDepth
+    analyseTree varDecls leftResult s2 n ifDepth1
 
-analyseTree varDecls xs s@(IfThenElse g s1 s2) n = do
+analyseTree varDecls xs s@(IfThenElse g s1 s2) n ifDepth = do
 
-    validIfBranches <- filterM (isBranchValid varDecls g) xs
-    putStrLn $ show validIfBranches
-    ifStmt    <- analyseTree varDecls (map ((:) (Assume g))  validIfBranches) s1 n
-    putStrLn $ show ifStmt
+    validIfBranches <- filterValidPaths g varDecls ifDepth xs  -- filterM (isBranchValid varDecls g) xs
+    --putStrLn $ show validIfBranches
+    (depth1,ifStmt)    <- analyseTree varDecls (map ((:) (Assume g))  validIfBranches) s1 n (ifDepth-1)
+    --putStrLn $ show ifStmt
 
     validElseBranches <- filterM (isBranchValid varDecls  (OpNeg g)) xs
-    elseStmt  <- analyseTree varDecls (map ((:) (Assume (OpNeg g))) validElseBranches) s2 n
-    return $ ifStmt ++ elseStmt
-analyseTree varDecls xs s@(While exp stmt) n = do
-    emptyLoopPath <- filterRes xs (OpNeg exp)
+    (depth2, elseStmt)  <- analyseTree varDecls (map ((:) (Assume (OpNeg g))) validElseBranches) s2 n (ifDepth -1)
+    return $ ( (depth1 + depth2) `quot` 2 -1 , ifStmt ++ elseStmt)
+analyseTree varDecls xs s@(While exp stmt) n ifDepth = do
+    emptyLoopPath <- filterValidPaths (OpNeg exp) varDecls ifDepth xs
     let emptyLoop   = (preFixLoops (Assume (OpNeg exp)) emptyLoopPath)
 
-    bodyResult      <- scanWhile
-    bodyPaths <- filterRes (concat bodyResult) (OpNeg exp)
+    (bodyDepth, bodyResult)      <- scanWhile
+    bodyPaths <- filterValidPaths (OpNeg exp) varDecls ifDepth (concat bodyResult)
 
-    return $  emptyLoop ++ (preFixLoops (Assume (OpNeg exp)) bodyPaths)
+    return $  (bodyDepth -1 ,emptyLoop ++ (preFixLoops (Assume (OpNeg exp)) bodyPaths))
       where
-        filterRes list g    = filterM (isBranchValid varDecls g) list
-        scanWhile           = foldM scanfn [xs] [1..n]
-        scanfn acc _        = do
+        scanWhile           = foldM scanfn (ifDepth, [xs]) [1..n]
+        scanfn (depth, acc) _        = do
             -- filter the paths on is feasible and continue loop on feasible paths
-            paths <- filterRes (head acc) exp
-            res <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n
-            return (res : acc)
+            paths <- filterValidPaths exp varDecls depth (head acc)
+            (newDepth, res) <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n ifDepth
+            return (newDepth -1, (res : acc))
         preFixLoops v []    = [[v]]
         preFixLoops v xss   = map ((:) v) xss
 
 --(preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
 --analyseTree varDecls [] s n = return [[s]]
-analyseTree varDecls xs s n = return $ map ((:) s) xs
+analyseTree varDecls xs s n ifDepth = return $ (ifDepth ,map ((:) s) xs)
 
+filterValidPaths :: Expr -> [VarDeclaration] -> Int -> [ProgramPath] -> IO [ProgramPath]
+filterValidPaths g varDecls ifDepth paths = do
+    if ifDepth > 0 then
+         filterM (isBranchValid varDecls g) paths
+    else
+        return paths
 
 isBranchValid :: [VarDeclaration] -> Expr -> ProgramPath -> IO Bool
 isBranchValid varDecls g path = return =<< isSat =<< isGuardSat finalWlp varDecls
