@@ -74,7 +74,7 @@ main = do
 processProgram :: Program -> TimeSpec -> Clock -> IO ()
 processProgram program startTime clock= do
     -- preprocess program
-    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
     -- every path ends with the precondition
     let branchRoot = [[(Assume pre)]]
@@ -90,6 +90,8 @@ processProgram program startTime clock= do
     displayTimeMetrics validationTime startTime clock
     return ()
 
+replaceNbyIntTree :: Int -> Stmt  -> Stmt
+replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
 displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
 displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
@@ -136,8 +138,8 @@ processSinglePath varDecls pre post path = do
 
 
 
-preProcessProgram :: Program -> IO PreprocessResult
-preProcessProgram program = do
+preProcessProgram :: Program -> Int-> IO PreprocessResult
+preProcessProgram program n = do
     putStrLn "Start Preprocess"
     putStrLn "------------------------------------------------------------------- "
     let programBody = stmt program
@@ -149,8 +151,10 @@ preProcessProgram program = do
     -- TODO maybe pretty print all vars
     putStrLn ""
 
+    let nPlaced =  replaceNbyIntTree n uniqueVars
+
     putStrLn "Procces pre- and postconditions"
-    let noBlocks = removeAllBlocks uniqueVars
+    let noBlocks = removeAllBlocks nPlaced
     let maybePreCon = fetchPre noBlocks
     let maybePostCon = fetchPost noBlocks
     noPreBody <- removePreCondition maybePreCon noBlocks
