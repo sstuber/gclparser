@@ -71,7 +71,7 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth = do
         scanfn (depth, acc) _        = do
             -- filter the paths on is feasible and continue loop on feasible paths
             paths <- filterValidPaths exp varDecls depth (head acc)
-            (newDepth, res) <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n ifDepth
+            (newDepth, res) <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n depth
             return (newDepth -1, (res : acc))
         preFixLoops v []    = [[v]]
         preFixLoops v xss   = map ((:) v) xss
