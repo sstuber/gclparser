@@ -31,6 +31,8 @@ main :: IO ()
 main = do
     let clock = Monotonic
     starttime <- getTime clock
+    BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
+
 
     (parseResult) <- parseGCLfile "examples/benchmark/bsort.gcl"
 
@@ -80,9 +82,21 @@ processProgram program startTime clock = do
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
-    displayTimeMetrics validationTime startTime clock
-    displayAtomSize post programPaths
-    BS.appendFile "metrics/metrics.csv" $ encode [("John" :: String, 20 :: Int)]
+    time <- displayTimeMetrics validationTime startTime clock
+    atoms <- displayAtomSize post programPaths
+    {- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    BS.appendFile "metrics/metrics.csv" $ encode [(show time :: String, atoms :: Int, uNFOLDLOOP :: Int)]
 
 
     return ()
@@ -90,20 +104,22 @@ processProgram program startTime clock = do
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
 
-displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
+displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO (TimeSpec)
 displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
     putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
     time <- getTime clock
     putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
                           ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
+    return(TimeSpec ((sec time) - (sec startTime)) ((nsec time) - (nsec startTime)))
 
-displayAtomSize :: PostCon -> [ProgramPath] -> IO ()
+displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
 displayAtomSize post path = do
     let wlp = map (foldr generateWlp post) path
     let atoms = foldr (+) 0 (map countAtoms wlp)
     putStrLn "------------Total size of atoms----------------"
     putStrLn $ show atoms
+    return atoms
 
 checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO[(Bool, ProgramPath)]
 checkValidityOfProgram post [] vardec = return []
