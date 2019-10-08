@@ -14,6 +14,8 @@ import Common
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
 
+ifDepth = 6
+
 -- Benchmarks
 -- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
 {- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
@@ -72,13 +74,13 @@ main = do
 processProgram :: Program -> TimeSpec -> Clock -> IO ()
 processProgram program startTime clock= do
     -- preprocess program
-    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
     -- every path ends with the precondition
     let branchRoot = [[(Assume pre)]]
     -- get all the feasible branches
-    programPaths <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-
+    (testDepth, programPaths) <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP ifDepth
+    putStrLn $ show testDepth
     -- validate all feasible paths
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls 1)
 
@@ -88,6 +90,8 @@ processProgram program startTime clock= do
     displayTimeMetrics validationTime startTime clock
     return ()
 
+replaceNbyIntTree :: Int -> Stmt  -> Stmt
+replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
 displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
 displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
@@ -134,8 +138,8 @@ processSinglePath varDecls pre post path = do
 
 
 
-preProcessProgram :: Program -> IO PreprocessResult
-preProcessProgram program = do
+preProcessProgram :: Program -> Int-> IO PreprocessResult
+preProcessProgram program n = do
     putStrLn "Start Preprocess"
     putStrLn "------------------------------------------------------------------- "
     let programBody = stmt program
@@ -147,8 +151,10 @@ preProcessProgram program = do
     -- TODO maybe pretty print all vars
     putStrLn ""
 
+    let nPlaced =  replaceNbyIntTree n uniqueVars
+
     putStrLn "Procces pre- and postconditions"
-    let noBlocks = removeAllBlocks uniqueVars
+    let noBlocks = removeAllBlocks nPlaced
     let maybePreCon = fetchPre noBlocks
     let maybePostCon = fetchPost noBlocks
     noPreBody <- removePreCondition maybePreCon noBlocks

@@ -47,6 +47,36 @@ replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = BinopExpr op replacedEx
         replacedExpr2 = replaceVarWithMap varMap expr2
 replaceVarWithMap varMap (Forall i expr)                             = Forall i (replaceVarWithMap varMap expr)
 
+
+replaceVarStmt :: String -> Expr -> Stmt -> Stmt
+replaceVarStmt name new (Block      d stmt)           = Block d (replaceVarStmt name new stmt)
+replaceVarStmt name new (Seq        stmt1 stmt2)      = Seq        (replaceVarStmt name new stmt1) (replaceVarStmt name new stmt2)
+replaceVarStmt name new (Assert     expr)             = Assert      (replaceVar name new expr)
+replaceVarStmt name new (Assume     expr)             = Assume      (replaceVar name new expr)
+replaceVarStmt name new (Assign     n expr )          = Assign     n (replaceVar name new expr)
+replaceVarStmt name new (AAssign    n expr1 expr2)    = AAssign    n (replaceVar name new expr1) (replaceVar name new expr2)
+replaceVarStmt name new (DrefAssign n expr)           = DrefAssign n (replaceVar name new expr)
+replaceVarStmt name new (IfThenElse expr stmt1 stmt2) = IfThenElse (replaceVar name new expr) (replaceVarStmt name new stmt1) (replaceVarStmt name new stmt2)
+replaceVarStmt name new (While      expr stmt)        = While (replaceVar name new expr) (replaceVarStmt name new stmt)
+replaceVarStmt name new (Skip       )                 = Skip
+replaceVarStmt name new s = s
+
+{-
+data Stmt
+    = Skip
+    | Assert     Expr
+    | Assume     Expr
+    | Assign     String           Expr
+    | AAssign    String           Expr   Expr
+    | DrefAssign String           Expr
+    | Seq        Stmt             Stmt
+    | IfThenElse Expr             Stmt   Stmt
+    | While      Expr             Stmt
+    | Block      [VarDeclaration] Stmt
+    | TryCatch   String           Stmt   Stmt
+--    | Call       [String]         [Expr] String
+-}
+
 fst3 :: (a, b, c) -> a
 fst3 (a, b, c) = a
 
