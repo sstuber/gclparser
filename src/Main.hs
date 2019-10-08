@@ -29,11 +29,15 @@ main = do
     let clock = Monotonic
     starttime <- getTime clock
 
-    (parseResult) <- parseGCLfile "../examples/E.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/bsort.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
+
+    putStrLn "Do you want to turn on the heuristics?"
+    -- heuristics <- getLine
+    let heuristics = False
 
     let (Right program) = parseResult
 
@@ -46,28 +50,13 @@ main = do
 
     let branches = splitBranch stmts uNFOLDLOOP
 
+    putStrLn $ "Size of formulas: " ++ (show (countAtoms wlp))
 
     let wlp = map (foldr generateWlp post) branches
     putStrLn $ "Total number of branches: " ++ (show (length branches))
     putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
     test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-    --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
-    putStrLn "wlp below -------------------------------------- "
-    putStrLn $ show wlp
-    let clock2 = Monotonic
 
-
-    (pathData, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
-
-    putStrLn "Paths checked on validity:"
-    putStrLn $ show $ length pathData
-
-
-    putStrLn "----------------- Time Metrics ------------------"
-    putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
-    time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
-                          ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
 -}
     putStrLn "hello"
 
@@ -80,18 +69,22 @@ processProgram program startTime clock= do
     let branchRoot = [[(Assume pre)]]
     -- get all the feasible branches
     (testDepth, programPaths) <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP ifDepth
+
     putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls 1)
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls)
 
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
     displayTimeMetrics validationTime startTime clock
+    displayAtomSize post programPaths
+
     return ()
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
+
 displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
 displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
@@ -100,21 +93,29 @@ displayTimeMetrics validationTime startTime clock = do
     putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
                           ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
-checkValidityOfProgram post [] vardec count = return []
-checkValidityOfProgram post (h : t) vardec count = do
+displayAtomSize :: PostCon -> [ProgramPath] -> IO ()
+displayAtomSize post path = do
+    let wlp = map (foldr generateWlp post) path
+    let atoms = foldr (+) 0 (map countAtoms wlp)
+    putStrLn "------------Total size of atoms----------------"
+    putStrLn $ show atoms
+
+checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO[(Bool, ProgramPath)]
+checkValidityOfProgram post [] vardec = return []
+checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
+    let atoms = countAtoms wlp
 
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
 
     res       <- if validity then do
-          result <- (checkValidityOfProgram post t vardec (count + 1))
+          result <- (checkValidityOfProgram post t vardec)
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
-    return $ (validity, h, count) : res
+    return $ (validity, h) : res
 
 
 countAtoms :: Expr -> Int
