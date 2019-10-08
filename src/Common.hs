@@ -86,3 +86,8 @@ snd3 (a, b, c) = b
 trd3 :: (a, b, c) -> c
 trd3 (a, b, c) = c
 
+mapSnd2 :: (a -> b) -> [(c,a)] -> [(c,b)]
+mapSnd2 f = map (\(i,x)-> (i, f x))
+
+mapFst2 :: (a-> b) -> [(a,c)] -> [(b,c)]
+mapFst2 f = map (\(i,x)-> (f i, x))

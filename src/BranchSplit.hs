@@ -43,7 +43,7 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 
-analyseTree :: [VarDeclaration] -> [ProgramPath] -> Stmt -> Int -> Int-> IO (Int, [ProgramPath])
+analyseTree :: [VarDeclaration] -> [(Int, ProgramPath)] -> Stmt -> Int -> Int-> IO (Int, [(Int, ProgramPath)])
 analyseTree varDecls xs s@(Seq s1 s2) n ifDepth = do
     (ifDepth1, leftResult) <- analyseTree varDecls xs s1 n ifDepth
     analyseTree varDecls leftResult s2 n ifDepth1
@@ -52,7 +52,7 @@ analyseTree varDecls xs s@(IfThenElse g s1 s2) n ifDepth = do
 
     validIfBranches <- filterValidPaths g varDecls ifDepth xs  -- filterM (isBranchValid varDecls g) xs
     --putStrLn $ show validIfBranches
-    (depth1,ifStmt)    <- analyseTree varDecls (map ((:) (Assume g))  validIfBranches) s1 n (ifDepth-1)
+    (depth1,ifStmt)    <- analyseTree varDecls (mapSnd2 ((:) (Assume g))  validIfBranches) s1 n (ifDepth-1)
     --putStrLn $ show ifStmt
 
     validElseBranches <- filterM (isBranchValid varDecls  (OpNeg g)) xs
@@ -80,19 +80,24 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth = do
 --analyseTree varDecls [] s n = return [[s]]
 analyseTree varDecls xs s n ifDepth = return $ (ifDepth ,map ((:) s) xs)
 
-filterValidPaths :: Expr -> [VarDeclaration] -> Int -> [ProgramPath] -> IO [ProgramPath]
+filterValidPaths :: Expr -> [VarDeclaration] -> Int -> [(Int, ProgramPath)] -> IO [(Int, ProgramPath)]
 filterValidPaths g varDecls ifDepth paths = do
     if ifDepth > 0 then
-         filterM (isBranchValid varDecls g) paths
+         filterM (\(i,x) -> isBranchValid varDecls g x) paths
     else
         return paths
 
-isBranchValid :: [VarDeclaration] -> Expr -> ProgramPath -> IO Bool
-isBranchValid varDecls g path = return =<< isSat =<< isGuardSat finalWlp varDecls
-    where
-        finalWlp = foldl (flip generateWlpGuard) g path
-        isSat (Sat) = return True
-        isSat _ = return False
+isBranchValid :: [VarDeclaration] -> Expr -> (Int, ProgramPath) -> IO Bool
+isBranchValid varDecls g path = do
+    test1 <-isGuardSat finalWlp varDecls
+    test2 <-isSat test1
+    --putStrLn $ show test2
+    --putStrLn $ show finalWlp
+    return test2
+      where
+          finalWlp = foldl (flip generateWlpGuard) g path
+          isSat (Sat) = return True
+          isSat _ = return False
 
 
 
