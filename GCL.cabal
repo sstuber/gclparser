@@ -29,6 +29,7 @@ executable GCLparser
                      , pretty
                      , clock
                      , stopwatch
+                     , cassava
   hs-source-dirs:      src
   build-tools:         happy, alex
   default-language:    Haskell2010

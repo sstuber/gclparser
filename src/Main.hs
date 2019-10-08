@@ -10,6 +10,7 @@ import Z3Converter
 import System.Clock
 import Control.StopWatch
 import Common
+import Data.Csv
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
@@ -61,7 +62,7 @@ main = do
     putStrLn "hello"
 
 processProgram :: Program -> TimeSpec -> Clock -> IO ()
-processProgram program startTime clock= do
+processProgram program startTime clock = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
@@ -79,6 +80,7 @@ processProgram program startTime clock= do
 
     displayTimeMetrics validationTime startTime clock
     displayAtomSize post programPaths
+
 
     return ()
 
