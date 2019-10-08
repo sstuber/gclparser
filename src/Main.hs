@@ -11,6 +11,8 @@ import System.Clock
 import Control.StopWatch
 import Common
 import Data.Csv
+import qualified Data.Text.IO as TextIO
+import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 1
@@ -80,6 +82,7 @@ processProgram program startTime clock = do
 
     displayTimeMetrics validationTime startTime clock
     displayAtomSize post programPaths
+    BS.appendFile "metrics/metrics.csv" $ encode [("John" :: String, 20 :: Int)]
 
 
     return ()
