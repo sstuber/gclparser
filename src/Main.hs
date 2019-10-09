@@ -15,9 +15,12 @@ import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 1
+uNFOLDLOOP = 5
 
-ifDepth = 6
+maxDepth :: Int
+maxDepth = 60
+
+ifDepth = 0
 
 -- Benchmarks
 -- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
@@ -70,14 +73,22 @@ processProgram program startTime clock = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
-    -- every path ends with the precondition
-    let branchRoot = [[(Assume pre)]]
-    -- get all the feasible branches
-    (testDepth, programPaths) <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP ifDepth
+    putStrLn "test"
 
+
+    -- every path ends with the precondition
+    let branchRoot = [(maxDepth ,[(Assume pre)])]
+    -- get all the feasible branches
+    (testDepth, programPaths) <- analyseTree varDecls branchRoot stmts uNFOLDLOOP ifDepth True
+
+    putStrLn "path depth ?"
+    mapM (\x -> putStrLn $ show (maxDepth - (fst x ))) programPaths
+
+    let test = map snd programPaths
+    putStrLn "testDepth"
     putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post programPaths varDecls)
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls 1)
 
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
