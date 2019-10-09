@@ -45,29 +45,27 @@ main = do
 
     let (Right program) = parseResult
 
-    (_, totaltime) <- stopWatch (processProgram program)
+    ((validationtime, atoms), totaltime) <- stopWatch (processProgram program)
     putStrLn "-------------- TOTALTIME -----------------"
     putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
                      ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
-{-
-
-
-    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
-
-    let branches = splitBranch stmts uNFOLDLOOP
-
-    putStrLn $ "Size of formulas: " ++ (show (countAtoms wlp))
-
-    let wlp = map (foldr generateWlp post) branches
-    putStrLn $ "Total number of branches: " ++ (show (length branches))
-    putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
-    test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-
--}
+{- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
     putStrLn "hello"
 
-processProgram :: Program -> IO ()
+processProgram :: Program -> IO (TimeSpec, Int)
 processProgram program = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
@@ -91,24 +89,12 @@ processProgram program = do
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
-    time <- displayTimeMetrics validationTime
+    displayTimeMetrics validationTime
     atoms <- displayAtomSize post (map snd programPaths)
-    {- Metrics written to file: (! indicates that it is not yet added)
-    ! # experiment round
-    ! Heuristics on or off
-    ! Loop depth
-    ! N
-    ! Total number of inspected paths
-    ! Unfeasible paths
-    - Time spent on verification
-    ! Time spent on finding unfeasable paths
-    ! Time spent on array assignment optimization
-    - Total size of formulas
-    -}
-    BS.appendFile "metrics/metrics.csv" $ encode [(show time :: String, atoms :: Int, uNFOLDLOOP :: Int)]
 
 
-    return ()
+
+    return (validationTime, atoms)
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
