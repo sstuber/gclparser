@@ -85,7 +85,7 @@ processProgram program startTime clock= do
     -- every path ends with the precondition
     let branchRoot = [(maxDepth ,[(Assume pre)])]
     -- get all the feasible branches
-    (testDepth, programPaths) <- analyseTree varDecls branchRoot stmts uNFOLDLOOP ifDepth
+    (testDepth, programPaths) <- analyseTree varDecls branchRoot stmts uNFOLDLOOP ifDepth True
 
     putStrLn "path depth ?"
     mapM (\x -> putStrLn $ show (maxDepth - (fst x ))) programPaths
