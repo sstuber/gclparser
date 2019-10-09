@@ -88,13 +88,12 @@ processProgram program startTime clock = do
     putStrLn "testDepth"
     putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls 1)
-
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
     time <- displayTimeMetrics validationTime startTime clock
-    atoms <- displayAtomSize post programPaths
+    atoms <- displayAtomSize post (map snd programPaths)
     {- Metrics written to file: (! indicates that it is not yet added)
     ! # experiment round
     ! Heuristics on or off
