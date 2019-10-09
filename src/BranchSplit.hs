@@ -5,7 +5,9 @@ import Datatypes
 import PreProcessing
 import Common
 import Control.Monad
+import System.Clock
 import Z3Converter
+import Control.StopWatch
 import Z3.Monad
 
 -- TODO add means to process arrays
@@ -43,60 +45,57 @@ generateWlp (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlp s2 post)
 
 
-analyseTree :: [VarDeclaration] -> [(Int, ProgramPath)] -> Stmt -> Int -> Int -> Bool -> IO (Int, [(Int, ProgramPath)])
+analyseTree :: [VarDeclaration] -> [(Int, ProgramPath)] -> Stmt -> Int -> Int -> Bool -> IO (Int, Int, TimeSpec, [(Int, ProgramPath)])
 analyseTree varDecls xs s@(Seq s1 s2) n ifDepth heuristics = do
-    (ifDepth1, leftResult) <- analyseTree varDecls xs s1 n ifDepth heuristics
-    analyseTree varDecls leftResult s2 n ifDepth1 heuristics
+    (ifDepth1, infeasible1, time1, leftResult)  <- analyseTree varDecls xs s1 n ifDepth heuristics
+    (ifDepth2, infeasible2, time2, finalResult) <- analyseTree varDecls leftResult s2 n ifDepth1 heuristics
+    return (ifDepth2, infeasible1 + infeasible2, time1 + time2, finalResult)
 
 analyseTree varDecls xs s@(IfThenElse g s1 s2) n ifDepth heuristics = do
+    ((infeasible1, validIfBranches),   time1) <- stopWatch (filterValidPaths g         heuristics varDecls ifDepth xs)
+    ((infeasible2, validElseBranches), time2) <- stopWatch (filterValidPaths (OpNeg g) heuristics varDecls ifDepth xs)
 
-    validIfBranches <- filterValidPaths g heuristics varDecls ifDepth xs  -- filterM (isBranchValid varDecls g) xs
-    --putStrLn $ show validIfBranches
-    (depth1,ifStmt)    <- analyseTree varDecls (addStmtToPaths (Assume g)  validIfBranches) s1 n (ifDepth-1) heuristics
-    --putStrLn $ show ifStmt
+    (depth1,infeasible1, time1,ifStmt)        <- analyseTree varDecls (addStmtToPaths (Assume g)         validIfBranches)   s1 n (ifDepth - 1) heuristics
+    (depth2,infeasible2, time2, elseStmt)     <- analyseTree varDecls (addStmtToPaths (Assume (OpNeg g)) validElseBranches) s2 n (ifDepth - 1) heuristics
+    let finalDepth = (depth1 + depth2) `quot` 2 -1
 
-    validElseBranches <- filterM (isBranchValid varDecls  (OpNeg g)) xs
-    (depth2, elseStmt)  <- analyseTree varDecls (addStmtToPaths (Assume (OpNeg g)) validElseBranches) s2 n (ifDepth -1) heuristics
-    return $ ( (depth1 + depth2) `quot` 2 -1 , ifStmt ++ elseStmt)
+    return $ (finalDepth, infeasible1 + infeasible2, time1 + time2, ifStmt ++ elseStmt)
+
 analyseTree varDecls xs s@(While exp stmt) n ifDepth heuristics = do
-    emptyLoopPath <- filterValidPaths (OpNeg exp) heuristics varDecls ifDepth xs
-    let emptyLoop   = (preFixLoops (Assume (OpNeg exp)) emptyLoopPath)
+    ((infeasible1, emptyLoopPath), time1) <- stopWatch (filterValidPaths (OpNeg exp) heuristics varDecls ifDepth xs)
+    let emptyLoop   = (addStmtToPaths (Assume (OpNeg exp)) emptyLoopPath)
 
-    (bodyDepth, bodyResult)      <- scanWhile
-    bodyPaths <- filterValidPaths (OpNeg exp) heuristics varDecls ifDepth (concat bodyResult)
+    (bodyDepth, infeasible2, time2, bodyResult)      <- scanWhile
+    ((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls ifDepth (concat bodyResult))
 
-    return $  (bodyDepth -1 ,emptyLoop ++ (preFixLoops (Assume (OpNeg exp)) bodyPaths))
+    return (bodyDepth -1 ,infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3,  emptyLoop ++ (addStmtToPaths (Assume (OpNeg exp)) bodyPaths))
       where
-        scanWhile           = foldM (scanfn varDecls heuristics stmt exp n)  (ifDepth, [xs]) [1..n]
+        scanWhile           = foldM (scanfn varDecls heuristics stmt exp n)  (ifDepth, 0, TimeSpec 0 0, [xs]) [1..n]
         --scanfn (depth, acc) _        = do
         --    -- filter the paths on is feasible and continue loop on feasible paths
         --    paths <- filterValidPaths exp varDecls depth (head acc)
         --    (newDepth, res) <- analyseTree varDecls (preFixLoops (Assume exp) paths) stmt n depth
         --    return (newDepth -1, (res : acc))
-        preFixLoops v []    = []
-        preFixLoops v xss   = addStmtToPaths v xss
 
 --(preFixLoops (Assume (OpNeg exp)) xs) ++ (preFixLoops (Assume (OpNeg exp)) (concat scanWhile))
 --analyseTree varDecls [] s n = return [[s]]
-analyseTree varDecls xs s n ifDepth heuristics = return $ (ifDepth ,addStmtToPaths s xs)
+analyseTree varDecls xs s n ifDepth heuristics = return (ifDepth ,0, TimeSpec 0 0, addStmtToPaths s xs)
 
-scanfn :: [VarDeclaration] -> Bool-> Stmt -> Expr-> Int ->(Int, [[(Int, ProgramPath)]]) -> Int -> IO (Int, [[(Int, ProgramPath)]])
-scanfn varDecls heuristics stmt guard n (depth, acc) _        = do
+scanfn :: [VarDeclaration] -> Bool-> Stmt -> Expr-> Int ->(Int, Int, TimeSpec, [[(Int, ProgramPath)]]) -> Int -> IO (Int, Int, TimeSpec, [[(Int, ProgramPath)]])
+scanfn varDecls heuristics stmt guard n (depth, infeasible1, time1, acc) _        = do
     -- filter the paths on is feasible and continue loop on feasible paths
-    paths <- filterValidPaths guard heuristics varDecls depth (head acc)
-    (newDepth, res) <- analyseTree varDecls (preFixLoops (Assume guard) paths) stmt n depth heuristics
-    return (newDepth -1, (res : acc))
-      where
-            preFixLoops v []    = []
-            preFixLoops v xss   = addStmtToPaths v xss
+    ((infeasible2, paths),time2 ) <- stopWatch ( filterValidPaths guard heuristics varDecls depth (head acc))
+    (newDepth,infeasible3, time3 , res) <- analyseTree varDecls (addStmtToPaths (Assume guard) paths) stmt n depth heuristics
+    return (newDepth -1, infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3, (res : acc))
 
 
-filterValidPaths :: Expr -> Bool -> [VarDeclaration] -> Int -> [(Int, ProgramPath)] -> IO [(Int, ProgramPath)]
+filterValidPaths :: Expr -> Bool -> [VarDeclaration] -> Int -> [(Int, ProgramPath)] -> IO (Int, [(Int, ProgramPath)])
 filterValidPaths g heuristics varDecls ifDepth paths = do
-    if ifDepth > 0 && heuristics then
-         filterM (\x -> isBranchValid varDecls g x) paths
+    if ifDepth > 0 && heuristics then do
+         validated <- filterM (isBranchValid varDecls g) paths
+         return (length paths - length validated , validated)
     else
-        return paths
+        return (0, paths)
 
 isBranchValid :: [VarDeclaration] -> Expr -> (Int, ProgramPath) -> IO Bool
 isBranchValid varDecls g (i, path) = do
