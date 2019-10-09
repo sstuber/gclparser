@@ -32,11 +32,7 @@ ifDepth = 0
 
 main :: IO ()
 main = do
-    let clock = Monotonic
-    starttime <- getTime clock
     BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
-
-
     (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
 
     putStrLn "ParseResult"
@@ -49,7 +45,10 @@ main = do
 
     let (Right program) = parseResult
 
-    processProgram program starttime clock
+    (_, totaltime) <- stopWatch (processProgram program)
+    putStrLn "-------------- TOTALTIME -----------------"
+    putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
+                     ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
 {-
 
@@ -68,8 +67,8 @@ main = do
 -}
     putStrLn "hello"
 
-processProgram :: Program -> TimeSpec -> Clock -> IO ()
-processProgram program startTime clock = do
+processProgram :: Program -> IO ()
+processProgram program = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
@@ -92,7 +91,7 @@ processProgram program startTime clock = do
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
-    time <- displayTimeMetrics validationTime startTime clock
+    time <- displayTimeMetrics validationTime
     atoms <- displayAtomSize post (map snd programPaths)
     {- Metrics written to file: (! indicates that it is not yet added)
     ! # experiment round
@@ -114,14 +113,10 @@ processProgram program startTime clock = do
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
 
-displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO (TimeSpec)
-displayTimeMetrics validationTime startTime clock = do
+displayTimeMetrics :: TimeSpec -> IO ()
+displayTimeMetrics validationTime = do
     putStrLn "----------------- Time Metrics ------------------"
     putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
-    time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ show ((sec time) - (sec startTime))
-                          ++ " seconds and " ++ show ((nsec time) - (nsec startTime)) ++ " nanoseconds."
-    return(TimeSpec ((sec time) - (sec startTime)) ((nsec time) - (nsec startTime)))
 
 displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
 displayAtomSize post path = do
