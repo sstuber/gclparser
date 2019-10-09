@@ -10,6 +10,9 @@ import Z3Converter
 import System.Clock
 import Control.StopWatch
 import Common
+import Data.Csv
+import qualified Data.Text.IO as TextIO
+import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
 uNFOLDLOOP = 5
@@ -31,12 +34,18 @@ main :: IO ()
 main = do
     let clock = Monotonic
     starttime <- getTime clock
+    BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
 
-    (parseResult) <- parseGCLfile "../examples/E.gcl"
+
+    (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
+
+    putStrLn "Do you want to turn on the heuristics?"
+    -- heuristics <- getLine
+    let heuristics = False
 
     let (Right program) = parseResult
 
@@ -49,33 +58,18 @@ main = do
 
     let branches = splitBranch stmts uNFOLDLOOP
 
+    putStrLn $ "Size of formulas: " ++ (show (countAtoms wlp))
 
     let wlp = map (foldr generateWlp post) branches
     putStrLn $ "Total number of branches: " ++ (show (length branches))
     putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
     test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-    --let wlp = foldr (\new acc -> (foldr generateWlp post new) : acc ) [] (take 5 branches)
-    putStrLn "wlp below -------------------------------------- "
-    putStrLn $ show wlp
-    let clock2 = Monotonic
 
-
-    (pathData, validationTime) <- stopWatch (checkValidityOfProgram post branches varDecls 1)
-
-    putStrLn "Paths checked on validity:"
-    putStrLn $ show $ length pathData
-
-
-    putStrLn "----------------- Time Metrics ------------------"
-    putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
-    time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec starttime)))
-                          ++ " seconds and " ++ (show ((nsec time) - (nsec starttime))) ++ " nanoseconds."
 -}
     putStrLn "hello"
 
 processProgram :: Program -> TimeSpec -> Clock -> IO ()
-processProgram program startTime clock= do
+processProgram program startTime clock = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
@@ -102,34 +96,61 @@ processProgram program startTime clock= do
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
-    displayTimeMetrics validationTime startTime clock
+    time <- displayTimeMetrics validationTime startTime clock
+    atoms <- displayAtomSize post programPaths
+    {- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    BS.appendFile "metrics/metrics.csv" $ encode [(show time :: String, atoms :: Int, uNFOLDLOOP :: Int)]
+
+
     return ()
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
-displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO ()
+
+displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO (TimeSpec)
 displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
     putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
     time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
-                          ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
+    putStrLn $ show  "Total runtime of the program is: " ++ show ((sec time) - (sec startTime))
+                          ++ " seconds and " ++ show ((nsec time) - (nsec startTime)) ++ " nanoseconds."
+    return(TimeSpec ((sec time) - (sec startTime)) ((nsec time) - (nsec startTime)))
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> Int -> IO[(Bool, ProgramPath, Int)]
-checkValidityOfProgram post [] vardec count = return []
-checkValidityOfProgram post (h : t) vardec count = do
+displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
+displayAtomSize post path = do
+    let wlp = map (foldr generateWlp post) path
+    let atoms = foldr (+) 0 (map countAtoms wlp)
+    putStrLn "------------Total size of atoms----------------"
+    putStrLn $ show atoms
+    return atoms
+
+checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO[(Bool, ProgramPath)]
+checkValidityOfProgram post [] vardec = return []
+checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
+    let atoms = countAtoms wlp
 
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
 
     res       <- if validity then do
-          result <- (checkValidityOfProgram post t vardec (count + 1))
+          result <- (checkValidityOfProgram post t vardec)
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return []
-    return $ (validity, h, count) : res
+    return $ (validity, h) : res
 
 
 countAtoms :: Expr -> Int
@@ -165,7 +186,7 @@ preProcessProgram program n = do
     putStrLn $ (++) "Total amount of (local) variables: "  $ show . length $ allVarDeclarations
     -- TODO maybe pretty print all vars
     putStrLn ""
-
+    -- Give back 9 trees, one for every n
     let nPlaced =  replaceNbyIntTree n uniqueVars
 
     putStrLn "Procces pre- and postconditions"
