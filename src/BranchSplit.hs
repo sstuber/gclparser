@@ -8,10 +8,6 @@ import Control.Monad
 import Z3Converter
 import Z3.Monad
 
--- TODO add means to process arrays
--- TODO get programs in the right structure to check validity
-
-
 splitBranch :: Stmt -> Int -> [ProgramPath]
 splitBranch s@(Seq s1 s2) n          = [ x ++ y  | x <-  splitBranch s1 n, y <- splitBranch s2 n ]
 splitBranch s@(IfThenElse g s1 s2) n =

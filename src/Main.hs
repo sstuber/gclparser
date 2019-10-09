@@ -34,7 +34,7 @@ main = do
     BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
 
 
-    (parseResult) <- parseGCLfile "examples/benchmark/bsort.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
@@ -109,8 +109,8 @@ displayTimeMetrics validationTime startTime clock = do
     putStrLn "----------------- Time Metrics ------------------"
     putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
     time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ (show ((sec time) - (sec startTime)))
-                          ++ " seconds and " ++ (show ((nsec time) - (nsec startTime))) ++ " nanoseconds."
+    putStrLn $ show  "Total runtime of the program is: " ++ show ((sec time) - (sec startTime))
+                          ++ " seconds and " ++ show ((nsec time) - (nsec startTime)) ++ " nanoseconds."
     return(TimeSpec ((sec time) - (sec startTime)) ((nsec time) - (nsec startTime)))
 
 displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
@@ -172,7 +172,7 @@ preProcessProgram program n = do
     putStrLn $ (++) "Total amount of (local) variables: "  $ show . length $ allVarDeclarations
     -- TODO maybe pretty print all vars
     putStrLn ""
-
+    -- Give back 9 trees, one for every n
     let nPlaced =  replaceNbyIntTree n uniqueVars
 
     putStrLn "Procces pre- and postconditions"
