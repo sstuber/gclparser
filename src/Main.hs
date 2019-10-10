@@ -33,11 +33,7 @@ ifDepth = 0
 
 main :: IO ()
 main = do
-    let clock = Monotonic
-    starttime <- getTime clock
     BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
-
-
     (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
 
     putStrLn "ParseResult"
@@ -50,27 +46,28 @@ main = do
 
     let (Right program) = parseResult
 
-    processProgram program starttime clock
+    ((validationtime, atoms), totaltime) <- stopWatch (processProgram program)
+    putStrLn "-------------- TOTALTIME -----------------"
+    putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
+                     ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
-{-
-
-
-    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program
-
-    let branches = splitBranch stmts uNFOLDLOOP
-
-    putStrLn $ "Size of formulas: " ++ (show (countAtoms wlp))
-
-    let wlp = map (foldr generateWlp post) branches
-    putStrLn $ "Total number of branches: " ++ (show (length branches))
-    putStrLn $ "Size of formulas: " ++ (show (countAtoms (head wlp)))
-    test <- analyseTree varDecls [[(Assume pre)]] stmts uNFOLDLOOP
-
--}
+{- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
     putStrLn "hello"
 
-processProgram :: Program -> TimeSpec -> Clock -> IO ()
-processProgram program startTime clock = do
+processProgram :: Program -> IO (TimeSpec, Int)
+processProgram program = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
 
@@ -92,41 +89,24 @@ processProgram program startTime clock = do
     putStrLn "testDepth"
     putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls 1)
-
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
     putStrLn "Paths checked on validity:"
     putStrLn $ show $ length pathDataList
 
-    time <- displayTimeMetrics validationTime startTime clock
-    atoms <- displayAtomSize post programPaths
-    {- Metrics written to file: (! indicates that it is not yet added)
-    ! # experiment round
-    ! Heuristics on or off
-    ! Loop depth
-    ! N
-    ! Total number of inspected paths
-    ! Unfeasible paths
-    - Time spent on verification
-    ! Time spent on finding unfeasable paths
-    ! Time spent on array assignment optimization
-    - Total size of formulas
-    -}
-    BS.appendFile "metrics/metrics.csv" $ encode [(show time :: String, atoms :: Int, uNFOLDLOOP :: Int)]
+    displayTimeMetrics validationTime
+    atoms <- displayAtomSize post (map snd programPaths)
 
 
-    return ()
+
+    return (validationTime, atoms)
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
 
-displayTimeMetrics :: TimeSpec -> TimeSpec -> Clock-> IO (TimeSpec)
-displayTimeMetrics validationTime startTime clock = do
+displayTimeMetrics :: TimeSpec -> IO ()
+displayTimeMetrics validationTime = do
     putStrLn "----------------- Time Metrics ------------------"
     putStrLn $ "Runtime on checking validity: " ++ show (sec validationTime) ++ " seconds; " ++ show (nsec validationTime) ++ "  nanoseconds;"
-    time <- getTime clock
-    putStrLn $ show  "Total runtime of the program is: " ++ show ((sec time) - (sec startTime))
-                          ++ " seconds and " ++ show ((nsec time) - (nsec startTime)) ++ " nanoseconds."
-    return(TimeSpec ((sec time) - (sec startTime)) ((nsec time) - (nsec startTime)))
 
 displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
 displayAtomSize post path = do
