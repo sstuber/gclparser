@@ -5,7 +5,7 @@ import GCLParser.GCLDatatype
 import qualified Data.Map.Strict as M
 import System.Clock
 import Data.Char
-
+import Control.Monad.Supply
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
 replaceVar name toReplaceExpr e@(Var name2)                 = if name2 == name then toReplaceExpr else e
@@ -27,36 +27,37 @@ replaceVar name toReplaceExpr (BinopExpr op expr1 expr2)    = BinopExpr op repla
 replaceVar name toReplaceExpr (Forall i expr)                             = Forall i (replaceVar name toReplaceExpr expr)
 
 
-replaceVarWithMap :: M.Map String String -> Expr -> Expr
+replaceVarWithMap :: M.Map String String -> Expr -> Supply Int Expr
 replaceVarWithMap varMap e@(Var name2)                 = case M.lookup name2 varMap of
-      Nothing  -> e
-      Just e2  -> Var e2
-replaceVarWithMap varMap (LitI int)                    = (LitI int)
-replaceVarWithMap varMap (LitB bool)                   = (LitB bool)
-replaceVarWithMap varMap (Parens expr)                 = Parens (replaceVarWithMap varMap expr)
-replaceVarWithMap varMap (ArrayElem array index)       = ArrayElem (replaceVarWithMap varMap array)
-                                                                        (replaceVarWithMap varMap index)
--- Maybe should go into newval with replaceVarWithMap?
-replaceVarWithMap varMap (RepBy arrayname expr newval) = RepBy (replaceVarWithMap varMap arrayname)
-                                                                (replaceVarWithMap varMap expr)
-                                                                (replaceVarWithMap varMap newval)
-replaceVarWithMap varMap (OpNeg expr)                  = OpNeg (replaceVarWithMap varMap expr)
-replaceVarWithMap varMap (SizeOf name2)                = SizeOf name2
-replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = BinopExpr op replacedExpr1 replacedExpr2
-    where
-        replacedExpr1 = replaceVarWithMap varMap expr1
-        replacedExpr2 = replaceVarWithMap varMap expr2
-replaceVarWithMap varMap (Forall i expr)                             = Forall updateName (replaceVarWithMap newMap expr)
-    where
-      newMap = M.insert i (updateName) varMap
-      replaceName = case M.lookup i varMap of
-        Nothing -> i
-        Just newName -> newName
-      updateName = if (length (takeWhile isDigit i)) > 0
-        then
-          (show (1 + (read (takeWhile isDigit i)))) ++ (dropWhile isDigit i)
-        else
-          '1' : i
+      Nothing  -> return e
+      Just e2  -> return $ Var e2
+replaceVarWithMap varMap (LitI int)                    = return (LitI int)
+replaceVarWithMap varMap (LitB bool)                   = return (LitB bool)
+replaceVarWithMap varMap (Parens expr)                 = replaceVarWithMap varMap expr >>= \x -> return $ Parens x
+replaceVarWithMap varMap (ArrayElem array index)       = do
+    sArray        <- (replaceVarWithMap varMap array)
+    sIndex        <- (replaceVarWithMap varMap index)
+    return $ ArrayElem sArray sIndex
+
+replaceVarWithMap varMap (RepBy arrayname expr newval) = do
+    sArrayName    <- replaceVarWithMap varMap arrayname
+    sExpr         <- replaceVarWithMap varMap expr
+    sNewVal       <- replaceVarWithMap varMap newval
+    return $ RepBy sArrayName sExpr sNewVal
+replaceVarWithMap varMap (OpNeg expr)                  = (replaceVarWithMap varMap expr) >>=  \x -> return $ OpNeg x
+replaceVarWithMap varMap e@(SizeOf name2) = case M.lookup name2 varMap of
+    Nothing       -> return e
+    Just e2       -> return $ SizeOf e2
+replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = do
+    replacedExpr1  <- replaceVarWithMap varMap expr1
+    replacedExpr2  <- replaceVarWithMap varMap expr2
+    return $ BinopExpr op replacedExpr1 replacedExpr2
+replaceVarWithMap varMap (Forall i expr) = do
+    newInt <- supply
+    let newName = (show newInt) ++ i
+    let newMap = M.insert i newName varMap
+    sExpr <- (replaceVarWithMap newMap expr)
+    return $ Forall newName sExpr
 
 replaceVarStmt :: String -> Expr -> Stmt -> Stmt
 replaceVarStmt name new (Block      d stmt)           = Block d (replaceVarStmt name new stmt)
@@ -71,21 +72,6 @@ replaceVarStmt name new (While      expr stmt)        = While (replaceVar name n
 replaceVarStmt name new (Skip       )                 = Skip
 replaceVarStmt name new s = s
 
-{-
-data Stmt
-    = Skip
-    | Assert     Expr
-    | Assume     Expr
-    | Assign     String           Expr
-    | AAssign    String           Expr   Expr
-    | DrefAssign String           Expr
-    | Seq        Stmt             Stmt
-    | IfThenElse Expr             Stmt   Stmt
-    | While      Expr             Stmt
-    | Block      [VarDeclaration] Stmt
-    | TryCatch   String           Stmt   Stmt
---    | Call       [String]         [Expr] String
--}
 
 fst3 :: (a, b, c) -> a
 fst3 (a, b, c) = a

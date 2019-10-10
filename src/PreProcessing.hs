@@ -71,39 +71,34 @@ renameVars (Block decls stmt) varMap = do
         updateName n = do
           newInt <- supply
           return $ (show newInt) ++ n
-      -- TODO make it such that it increases in in count
-      --  newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (updateName name) acc  ) varMap decls
-      --  newDecls = map (\(VarDeclaration name ttype) -> VarDeclaration (replaceName name newMap) ttype) decls
-
-      -- if (length (takeWhile isDigit n)) > 0
-      --  then
-      --    (show (1 + (read (takeWhile isDigit n)))) ++ (dropWhile isDigit n)
-      --  else
-      --    '1' : n
-
 
 renameVars (Seq stmt1 stmt2) map = do
     sStmt1 <- renameVars stmt1 map
     sStmt2 <- renameVars stmt2 map
     return $ Seq sStmt1 sStmt2
 
-renameVars (Assert e) map = return $ Assert (replaceVarWithMap map e)
-renameVars (Assume e) map = return $ Assume (replaceVarWithMap map e)
+renameVars (Assert e) map = (replaceVarWithMap map e) >>= \x -> return $ Assert x
+renameVars (Assume e) map = (replaceVarWithMap map e) >>= \x -> return $ Assume x
 renameVars (While e stmt) map = do
     sStmt <- renameVars stmt map
-    return $ While (replaceVarWithMap map e) sStmt
+    sExpr <- (replaceVarWithMap map e)
+    return $ While sExpr sStmt
 renameVars (IfThenElse e stmt1 stmt2) map = do
     sStmt1 <- renameVars stmt1 map
     sStmt2 <- renameVars stmt2 map
-    return $ IfThenElse (replaceVarWithMap map e) sStmt1 sStmt2
-renameVars (Assign name expr) map = return $ Assign newName (replaceVarWithMap map expr)
+    sExpr <- (replaceVarWithMap map e)
+    return $ IfThenElse sExpr sStmt1 sStmt2
+renameVars (Assign name expr) map =(replaceVarWithMap map expr) >>= \x -> return $ Assign newName x
     where
       newName = case M.lookup name map of
           Nothing -> name
           Just e   -> e
-renameVars (AAssign name index expr) map = return $ AAssign newName (replaceVarWithMap map index) (replaceVarWithMap map expr)
-    where
-      newName = case M.lookup name map of
-          Nothing -> name
-          Just e   -> e
+renameVars (AAssign name index expr) map = do
+    sIndex <- (replaceVarWithMap map index)
+    sExpr <-(replaceVarWithMap map expr)
+    return $ AAssign newName sIndex sExpr
+      where
+        newName = case M.lookup name map of
+            Nothing -> name
+            Just e   -> e
 renameVars Skip map = return $ Skip
