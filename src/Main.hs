@@ -11,6 +11,7 @@ import System.Clock
 import Control.StopWatch
 import Common
 import Data.Csv
+import Control.Monad.Supply
 import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
@@ -181,7 +182,7 @@ preProcessProgram program n = do
     let programBody = stmt program
 
     putStrLn "Process local variables"
-    let uniqueVars = renameVars programBody M.empty
+    let (uniqueVars,_) = runSupply (renameVars programBody M.empty) [1..]
     let allVarDeclarations = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
     putStrLn $ (++) "Total amount of (local) variables: "  $ show . length $ allVarDeclarations
     -- TODO maybe pretty print all vars

@@ -4,6 +4,8 @@ import GCLParser.GCLDatatype
 import Datatypes
 import Common
 import Data.Char
+import Control.Monad.Supply
+import Control.Monad
 
 import qualified Data.Map.Strict as M
 
@@ -54,37 +56,54 @@ removeAllBlocks (While expr stmt)             = While expr (removeAllBlocks stmt
 removeAllBlocks (Block decl stmt)             = removeAllBlocks stmt
 removeAllBlocks (Skip)                        = Skip
 
-renameVars :: Stmt -> M.Map String String -> Stmt
-renameVars (Block decls stmt) varMap = Block newDecls (renameVars stmt newMap)
-    where
-    -- TODO make it such that it increases in in count 
-      newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (updateName name) acc  ) varMap decls
-      newDecls = map (\(VarDeclaration name ttype) -> VarDeclaration (replaceName name newMap) ttype) decls
-      replaceName n m = case M.lookup n m of
-        Nothing -> n
-        Just newName -> newName
-      updateName n = if (length (takeWhile isDigit n)) > 0
-        then 
-          (show (1 + (read (takeWhile isDigit n)))) ++ (dropWhile isDigit n)
-        else
-          '1' : n
+renameVars :: Stmt -> M.Map String String -> Supply Int Stmt
+renameVars (Block decls stmt) varMap = do
+    newMap        <- foldM (\acc (VarDeclaration name ttype) -> updateName name >>= \newName -> return $ M.insert name newName acc) varMap decls
+    let newDecls  = map (\(VarDeclaration name ttype)          -> VarDeclaration (replaceName name newMap) ttype) decls
+
+    body <- renameVars stmt newMap
+
+    return $ Block newDecls body
+      where
+        replaceName n m = case M.lookup n m of
+          Nothing -> n
+          Just newName -> newName
+        updateName n = do
+          newInt <- supply
+          return $ (show newInt) ++ n
+      -- TODO make it such that it increases in in count
+      --  newMap = foldr (\(VarDeclaration name ttype) acc -> M.insert name (updateName name) acc  ) varMap decls
+      --  newDecls = map (\(VarDeclaration name ttype) -> VarDeclaration (replaceName name newMap) ttype) decls
+
+      -- if (length (takeWhile isDigit n)) > 0
+      --  then
+      --    (show (1 + (read (takeWhile isDigit n)))) ++ (dropWhile isDigit n)
+      --  else
+      --    '1' : n
 
 
-renameVars (Seq stmt1 stmt2) map = Seq (renameVars stmt1 map) (renameVars stmt2 map)
-renameVars (Assert e) map = Assert (replaceVarWithMap map e)
-renameVars (Assume e) map = Assume (replaceVarWithMap map e)
-renameVars (While e stmt) map = While (replaceVarWithMap map e) (renameVars stmt map)
-renameVars (IfThenElse e stmt1 stmt2) map = IfThenElse (replaceVarWithMap map e)
-                                        (renameVars stmt1 map)
-                                        (renameVars stmt2 map)
-renameVars (Assign name expr) map = Assign newName (replaceVarWithMap map expr)
+renameVars (Seq stmt1 stmt2) map = do
+    sStmt1 <- renameVars stmt1 map
+    sStmt2 <- renameVars stmt2 map
+    return $ Seq sStmt1 sStmt2
+
+renameVars (Assert e) map = return $ Assert (replaceVarWithMap map e)
+renameVars (Assume e) map = return $ Assume (replaceVarWithMap map e)
+renameVars (While e stmt) map = do
+    sStmt <- renameVars stmt map
+    return $ While (replaceVarWithMap map e) sStmt
+renameVars (IfThenElse e stmt1 stmt2) map = do
+    sStmt1 <- renameVars stmt1 map
+    sStmt2 <- renameVars stmt2 map
+    return $ IfThenElse (replaceVarWithMap map e) sStmt1 sStmt2
+renameVars (Assign name expr) map = return $ Assign newName (replaceVarWithMap map expr)
     where
       newName = case M.lookup name map of
           Nothing -> name
           Just e   -> e
-renameVars (AAssign name index expr) map = AAssign newName (replaceVarWithMap map index) (replaceVarWithMap map expr)
+renameVars (AAssign name index expr) map = return $ AAssign newName (replaceVarWithMap map index) (replaceVarWithMap map expr)
     where
       newName = case M.lookup name map of
           Nothing -> name
           Just e   -> e
-renameVars Skip map = Skip
+renameVars Skip map = return $ Skip
