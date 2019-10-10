@@ -4,6 +4,7 @@ import GCLParser.GCLDatatype
 
 import qualified Data.Map.Strict as M
 import System.Clock
+import Data.Char
 
 -- name of var to replace -> expression to replace with -> post condition
 replaceVar :: String -> Expr -> Expr -> Expr
@@ -45,8 +46,17 @@ replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = BinopExpr op replacedEx
     where
         replacedExpr1 = replaceVarWithMap varMap expr1
         replacedExpr2 = replaceVarWithMap varMap expr2
-replaceVarWithMap varMap (Forall i expr)                             = Forall i (replaceVarWithMap varMap expr)
-
+replaceVarWithMap varMap (Forall i expr)                             = Forall updateName (replaceVarWithMap newMap expr)
+    where
+      newMap = M.insert i (updateName) varMap
+      replaceName = case M.lookup i varMap of
+        Nothing -> i
+        Just newName -> newName
+      updateName = if (length (takeWhile isDigit i)) > 0
+        then
+          (show (1 + (read (takeWhile isDigit i)))) ++ (dropWhile isDigit i)
+        else
+          '1' : i
 
 replaceVarStmt :: String -> Expr -> Stmt -> Stmt
 replaceVarStmt name new (Block      d stmt)           = Block d (replaceVarStmt name new stmt)
