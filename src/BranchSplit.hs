@@ -61,9 +61,14 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth heuristics = do
     ((infeasible1, emptyLoopPath), time1) <- stopWatch (filterValidPaths (OpNeg exp) heuristics varDecls ifDepth xs)
     let emptyLoop   = (addStmtToPaths (Assume (OpNeg exp)) emptyLoopPath)
 
+    putStrLn "amount of paths for and after while"
+    putStrLn $ show (length xs)
     (bodyDepth, infeasible2, time2, bodyResult)      <- scanWhile
+    putStrLn $ show (length (concat bodyResult))
+    printList (concat bodyResult)
     ((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls ifDepth (concat bodyResult))
-
+    putStrLn $ show (length bodyPaths)
+    printList bodyPaths
     return (bodyDepth -1 ,infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3,  emptyLoop ++ (addStmtToPaths (Assume (OpNeg exp)) bodyPaths))
       where
         scanWhile           = foldM (scanfn varDecls heuristics stmt exp n)  (ifDepth, 0, TimeSpec 0 0, [xs]) [1..n]
@@ -125,3 +130,9 @@ generateWlpGuard (IfThenElse g s1 s2) post  = BinopExpr And ifSide elseSide
     where
         ifSide   = BinopExpr Implication g (generateWlpGuard s1 post)
         elseSide = BinopExpr Implication (OpNeg g)  (generateWlpGuard s2 post)
+
+printList :: (Show a) => [a] -> IO ()
+printList [] = return ()
+printList (x:xs) = do
+    putStrLn $ show x
+    printList xs
