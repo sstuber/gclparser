@@ -73,12 +73,12 @@ evalGuard :: Expr -> [VarDeclaration] -> Z3 Result
 evalGuard expr varDecls = do
     varDeclMap <- foldM createZVar M.empty varDecls
     exprAst <- convertZ3ToExpr varDeclMap expr
-    ioPrint "in eval guard -----------------------------"
-    ioPrint $ show expr
+    --ioPrint "in eval guard -----------------------------"
+    --ioPrint $ show expr
     astString <- astToString exprAst
-    ioPrint astString
+    --ioPrint astString
     result <- (assert exprAst >> check)
-    ioPrint $ show result
+    --ioPrint $ show result
     return result
 
 evalExpr ::  Expr -> [VarDeclaration] -> Z3 Result
@@ -91,15 +91,15 @@ evalExpr expr varDecls = do
     --      declStr <- astToString decl
     --      ioPrint declStr
     --  )
-    ioPrint "in eval Expr -----------"
-    ioPrint $ show expr
+    --ioPrint "in eval Expr -----------"
+    --ioPrint $ show expr
     exprAst <- convertZ3ToExpr varDeclMap expr
-    astString <- astToString exprAst
-    ioPrint astString
+    --astString <- astToString exprAst
+    --ioPrint astString
     result <- (assert exprAst >> check)
-    ioPrint $ show result
+    --ioPrint $ show result
     result <- assertExpr exprAst
-    ioPrint $ show result
+    --ioPrint $ show result
 
     return result
 
