@@ -16,10 +16,10 @@ import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 5
+uNFOLDLOOP = 2
 
 maxDepth :: Int
-maxDepth = 60
+maxDepth = 15
 
 ifDepth = 0
 
@@ -46,8 +46,27 @@ main = do
 
     let (Right program) = parseResult
 
-    ((validationtime, atoms), totaltime) <- stopWatch (processProgram program)
-    putStrLn "-------------- TOTALTIME -----------------"
+    let programInput =  (1, uNFOLDLOOP, ifDepth, True)
+    ((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
+
+    putStrLn "------------- VALIDATION TIME -------------"
+    putStrLn $ show validationTime
+
+    putStrLn "------------- TOTAL ATOMS -----------------"
+    putStrLn $ show atoms
+
+    putStrLn "------------- PATHS INFEASIBLE ------------"
+    putStrLn $ show infeasibleAmount
+    putStrLn "------------- PATHS VALIDATED -------------"
+    putStrLn $ show pathsChecked
+
+    putStrLn "------------- EXTRA TIME FEASIBILITY ------"
+    putStrLn $ show infeasibleTime
+
+    putStrLn "------------- PROGRAM VALID ----------------"
+    putStrLn $ show programValidity
+
+    putStrLn "-------------- TOTALTIME ------------------"
     putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
                      ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
@@ -66,21 +85,20 @@ main = do
     BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
     putStrLn "hello"
 
-processProgram :: Program -> IO (TimeSpec, Int)
-processProgram program = do
+processProgram :: Program -> ProgramInput -> IO ProgramOutput
+processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
     -- preprocess program
-    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program 2
+    (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program n
 
     putStrLn "test"
-
 
     -- every path ends with the precondition
     let branchRoot = [(maxDepth ,[(Assume pre)])]
     -- get all the feasible branches
-    (testDepth, infeasible, time, programPaths) <- analyseTree varDecls branchRoot stmts uNFOLDLOOP ifDepth True
+    (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
     putStrLn "infeasible and time"
-    putStrLn $ show infeasible
-    putStrLn $ show time
+    putStrLn $ show infeasibleAmount
+    putStrLn $ show infeasibleTime
 
     putStrLn "path depth ?"
     mapM (\x -> putStrLn $ show (maxDepth - (fst x ))) programPaths
@@ -90,15 +108,15 @@ processProgram program = do
     putStrLn $ show testDepth
     -- validate all feasible paths
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
-    putStrLn "Paths checked on validity:"
-    putStrLn $ show $ length pathDataList
+
+    --putStrLn "Paths checked on validity:"
+    --putStrLn $ show $ length pathDataList
 
     displayTimeMetrics validationTime
     atoms <- displayAtomSize post (map snd programPaths)
+    let programValidity = isProgramValid pathDataList
 
-
-
-    return (validationTime, atoms)
+    return (validationTime, atoms, length pathDataList, infeasibleTime, infeasibleAmount, programValidity)
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
@@ -116,12 +134,17 @@ displayAtomSize post path = do
     putStrLn $ show atoms
     return atoms
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO[(Bool, ProgramPath)]
+isProgramValid :: [(Bool, ProgramPath)] -> Bool
+isProgramValid [] = False
+isProgramValid ((b,p): xs) = b
+
+
+checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO [(Bool, ProgramPath)]
 checkValidityOfProgram post [] vardec = return []
 checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
-    let atoms = countAtoms wlp
-
+    putStrLn $ show post
+    putStrLn $ show wlp
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
 
@@ -130,7 +153,7 @@ checkValidityOfProgram post (h : t) vardec = do
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
-          return []
+          return [(False, h)]
     return $ (validity, h) : res
 
 

@@ -65,10 +65,10 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth heuristics = do
     putStrLn $ show (length xs)
     (bodyDepth, infeasible2, time2, bodyResult)      <- scanWhile
     putStrLn $ show (length (concat bodyResult))
-    printList (concat bodyResult)
+    --printList (concat bodyResult)
     ((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls ifDepth (concat bodyResult))
     putStrLn $ show (length bodyPaths)
-    printList bodyPaths
+    --printList bodyPaths
     return (bodyDepth -1 ,infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3,  emptyLoop ++ (addStmtToPaths (Assume (OpNeg exp)) bodyPaths))
       where
         scanWhile           = foldM (scanfn varDecls heuristics stmt exp n)  (ifDepth, 0, TimeSpec 0 0, [xs]) [1..n]
