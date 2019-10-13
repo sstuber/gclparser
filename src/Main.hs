@@ -105,23 +105,6 @@ runProgram program programInput = do
     BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
     putStrLn "END"
 
-
-{- Metrics written to file: (! indicates that it is not yet added)
-    ! # experiment round
-    ! Heuristics on or off
-    ! Loop depth
-    ! N
-    ! Total number of inspected paths
-    ! Unfeasible paths
-    - Time spent on verification
-    ! Time spent on finding unfeasable paths
-    ! Time spent on array assignment optimization
-    - Total size of formulas
-    -}
-    BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
-    putStrLn "hello"
-
-
 processProgram :: Program -> ProgramInput -> IO ProgramOutput
 processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
     -- preprocess program
