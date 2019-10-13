@@ -33,9 +33,19 @@ ifDepth = 0
 
 main :: IO ()
 main = do
-    BS.writeFile "metrics/metrics.csv" $ encode [("Total time" :: String, "Atoms" :: String, "uNFOLDLOOP" :: String)]
+    BS.writeFile "metrics/metrics.csv" $ encode [("Experiment round" :: String,
+                                                  "Validity" :: String,
+                                                  "Heuristics" :: String,
+                                                  "Loop depth" :: String,
+                                                  "If depth" :: String,
+                                                  "N" :: String,
+                                                  "Total number of inspected paths" :: String,
+                                                  "Number of unfeasible paths" :: String,
+                                                  "Time spent on verification" :: String,
+                                                  "Time spent on finding unfeasable paths" :: String,
+                                                  "Total time" :: String,
+                                                  "Atoms" :: String)]
     (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
-
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
@@ -46,27 +56,27 @@ main = do
 
     let (Right program) = parseResult
     let programInput =  (2, uNFOLDLOOP, ifDepth, True)
-    loopProgram program programInput
+    loopProgram program programInput 1
     putStrLn "hello"
 
-loopProgram :: Program -> ProgramInput -> IO ()
-loopProgram program input@(1, x, y, False) = do
-    runProgram program input
+loopProgram :: Program -> ProgramInput -> Int -> IO ()
+loopProgram program input@(1, x, y, False) round = do
+    runProgram program input round
 
-loopProgram program input@(n, x, y, False) = do
-    runProgram program input
-    loopProgram program (n - 1, x, y, False)
+loopProgram program input@(n, x, y, False) round = do
+    runProgram program input round
+    loopProgram program (n - 1, x, y, False) (round + 1)
 
-loopProgram program input@(1, x, y, True) = do
-    runProgram program input
-    loopProgram program (8, x, y, False)
+loopProgram program input@(1, x, y, True) round = do
+    runProgram program input round
+    loopProgram program (8, x, y, False) (round + 1)
 
-loopProgram program input@(n, x, y, True) = do
-    runProgram program input
-    loopProgram program (n - 1, x, y, True)
+loopProgram program input@(n, x, y, True) round = do
+    runProgram program input round
+    loopProgram program (n - 1, x, y, True) (round + 1)
 
-runProgram :: Program -> ProgramInput -> IO ()
-runProgram program programInput = do
+runProgram :: Program -> ProgramInput -> Int -> IO ()
+runProgram program programInput@(n, loopdepth, ifdepth, heur) round = do
     ((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
 
     putStrLn "------------- VALIDATION TIME -------------"
@@ -91,18 +101,31 @@ runProgram program programInput = do
                      ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
     {- Metrics written to file: (! indicates that it is not yet added)
-    ! # experiment round
-    ! Heuristics on or off
-    ! Loop depth
-    ! N
-    ! Total number of inspected paths
-    ! Unfeasible paths
+    - # experiment round
+    - Heuristics on or off
+    - Loop depth
+    - If depth
+    - N
+    - Total number of inspected paths
+    - Unfeasible paths
     - Time spent on verification
-    ! Time spent on finding unfeasable paths
+    - Time spent on finding unfeasable paths
     ! Time spent on array assignment optimization
+    - Total time spent
     - Total size of formulas
     -}
-    BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
+    BS.appendFile "metrics/metrics.csv" $ encode [(round :: Int,
+                                                   show programValidity :: String,
+                                                   show heur :: String,
+                                                   loopdepth :: Int,
+                                                   ifdepth :: Int,
+                                                   n :: Int,
+                                                   pathsChecked :: Int,
+                                                   infeasibleAmount :: Int,
+                                                   show validationTime :: String,
+                                                   show infeasibleTime :: String,
+                                                   show totaltime :: String,
+                                                   atoms :: Int)]
     putStrLn "END"
 
 processProgram :: Program -> ProgramInput -> IO ProgramOutput
