@@ -45,8 +45,9 @@ main = do
     let heuristics = False
 
     let (Right program) = parseResult
-
     let programInput =  (1, uNFOLDLOOP, ifDepth, True)
+    loopProgram program programInput
+    {-
     ((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
 
     putStrLn "------------- VALIDATION TIME -------------"
@@ -70,6 +71,80 @@ main = do
     putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
                      ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
 
+                     -}
+
+{- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    --BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
+    putStrLn "hello"
+
+loopProgram :: Program -> ProgramInput -> IO ()
+loopProgram program input@(1, x, y, False) = do
+    runProgram program input
+
+loopProgram program input@(n, x, y, False) = do
+    runProgram program input
+    loopProgram program (n - 1, x, y, False)
+
+loopProgram program input@(1, x, y, True) = do
+    runProgram program input
+    loopProgram program (8, x, y, False)
+
+loopProgram program input@(n, x, y, True) = do
+    runProgram program input
+    loopProgram program (n - 1, x, y, True)
+
+runProgram :: Program -> ProgramInput -> IO ()
+runProgram program programInput = do
+    ((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
+
+    putStrLn "------------- VALIDATION TIME -------------"
+    putStrLn $ show validationTime
+
+    putStrLn "------------- TOTAL ATOMS -----------------"
+    putStrLn $ show atoms
+
+    putStrLn "------------- PATHS INFEASIBLE ------------"
+    putStrLn $ show infeasibleAmount
+    putStrLn "------------- PATHS VALIDATED -------------"
+    putStrLn $ show pathsChecked
+
+    putStrLn "------------- EXTRA TIME FEASIBILITY ------"
+    putStrLn $ show infeasibleTime
+
+    putStrLn "------------- PROGRAM VALID ----------------"
+    putStrLn $ show programValidity
+
+    putStrLn "-------------- TOTALTIME ------------------"
+    putStrLn $ show  "Total runtime of the program is: " ++ show (sec totaltime)
+                     ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
+
+    {- Metrics written to file: (! indicates that it is not yet added)
+    ! # experiment round
+    ! Heuristics on or off
+    ! Loop depth
+    ! N
+    ! Total number of inspected paths
+    ! Unfeasible paths
+    - Time spent on verification
+    ! Time spent on finding unfeasable paths
+    ! Time spent on array assignment optimization
+    - Total size of formulas
+    -}
+    BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
+    putStrLn "END"
+
+
 {- Metrics written to file: (! indicates that it is not yet added)
     ! # experiment round
     ! Heuristics on or off
@@ -84,6 +159,7 @@ main = do
     -}
     BS.appendFile "metrics/metrics.csv" $ encode [(show totaltime :: String, atoms :: Int, uNFOLDLOOP :: Int)]
     putStrLn "hello"
+
 
 processProgram :: Program -> ProgramInput -> IO ProgramOutput
 processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
@@ -130,8 +206,6 @@ displayAtomSize :: PostCon -> [ProgramPath] -> IO Int
 displayAtomSize post path = do
     let wlp = map (foldr generateWlp post) path
     let atoms = foldr (+) 0 (map countAtoms wlp)
-    putStrLn "------------Total size of atoms----------------"
-    putStrLn $ show atoms
     return atoms
 
 isProgramValid :: [(Bool, ProgramPath)] -> Bool

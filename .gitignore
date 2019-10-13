@@ -3,3 +3,4 @@
 src/GCLLexer/Lexer.hs
 
 src/GCLParser/Parser.hs
+GCL.cabal
