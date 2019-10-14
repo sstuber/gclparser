@@ -96,7 +96,6 @@ evalExpr expr varDecls = do
     exprAst <- convertZ3ToExpr varDeclMap expr
     --astString <- astToString exprAst
     --ioPrint astString
-    result <- (assert exprAst >> check)
     --ioPrint $ show result
     result <- assertExpr exprAst
     --ioPrint $ show result

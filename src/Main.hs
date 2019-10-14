@@ -16,18 +16,18 @@ import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 25
+uNFOLDLOOP = 10
 
 maxDepth :: Int
-maxDepth = 55
+maxDepth = 30
 
-ifDepth = 5
+ifDepth = 10000
 
 -- TODO Implement extra heuristics, possibly from papers.
 
 main :: IO ()
 main = do
-    BS.writeFile "metrics/divByN.csv" $ encode [("Experiment round" :: String,
+    BS.writeFile "metrics/metrics.csv" $ encode [("Experiment round" :: String,
                                                   "Validity" :: String,
                                                   "Heuristics" :: String,
                                                   "Loop depth" :: String,
@@ -54,7 +54,7 @@ main = do
     putStrLn "hello"
 
     -- Poging om loopProgram wat te verkorten.
-    --let iets = [(x, uNFOLDLOOP, ifDepth, y, z) | z <- z + 1, x <- [2..10], y <- [True, False]]
+    --let iets = [(x, uNFOLDLOOP, ifDepth, y) | x <- [2..10], y <- [True, False]]
     --putStrLn $ show iets
     --mapM_ (runProgram program) iets
 
@@ -133,23 +133,18 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
     -- preprocess program
     (stmts, (Just pre), (Just post), varDecls) <- preProcessProgram program n
 
-    putStrLn "test"
-
     -- every path ends with the precondition
     let branchRoot = [(maxDepth ,[(Assume pre)])]
     -- get all the feasible branches
     -- Kunnen we dit niet uitzetten als we de heuristieken uit hebben staan?
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
-    putStrLn "infeasible and time"
-    putStrLn $ show infeasibleAmount
-    putStrLn $ show infeasibleTime
 
-    putStrLn "path depth ?"
-    mapM (\x -> putStrLn $ show (maxDepth - (fst x ))) programPaths
+    --putStrLn "path depth ?"
+    --mapM (\x -> putStrLn $ show (maxDepth - (fst x ))) programPaths
 
     let test = map snd programPaths
-    putStrLn "testDepth"
-    putStrLn $ show testDepth
+    --putStrLn "testDepth"
+    --putStrLn $ show testDepth
     -- validate all feasible paths
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
 
@@ -175,7 +170,7 @@ displayAtomSize post path = do
     return atoms
 
 isProgramValid :: [(Bool, ProgramPath)] -> Bool
-isProgramValid [] = False
+isProgramValid [] = True
 isProgramValid ((b,p): xs) = b
 
 
@@ -184,7 +179,8 @@ checkValidityOfProgram post [] vardec = return []
 checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
     --putStrLn $ show post
-    --putStrLn $ show wlp
+    putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
+    putStrLn $ show wlp
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
 
