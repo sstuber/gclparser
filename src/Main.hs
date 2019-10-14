@@ -16,24 +16,18 @@ import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 2
+uNFOLDLOOP = 25
 
 maxDepth :: Int
-maxDepth = 15
+maxDepth = 55
 
-ifDepth = 0
+ifDepth = 5
 
--- Benchmarks
--- TODO Total number of inspected paths, and of these, the number of paths you manage to identify as unfeasible.
-{- TODO Consumed computation time: time spent on verification, time spent on identifying unfeasible paths, time spent on
-    array assignment optimization (see below), and total used time. -}
--- TODO Write a function that tests programs and incorporates the variable N.
--- TODO Heuristics on and off.
 -- TODO Implement extra heuristics, possibly from papers.
 
 main :: IO ()
 main = do
-    BS.writeFile "metrics/metrics.csv" $ encode [("Experiment round" :: String,
+    BS.writeFile "metrics/divByN.csv" $ encode [("Experiment round" :: String,
                                                   "Validity" :: String,
                                                   "Heuristics" :: String,
                                                   "Loop depth" :: String,
@@ -42,34 +36,40 @@ main = do
                                                   "Total number of inspected paths" :: String,
                                                   "Number of unfeasible paths" :: String,
                                                   "Time spent on verification" :: String,
-                                                  "Time spent on finding unfeasable paths" :: String,
+                                                  "Time spent on finding unfeasible paths" :: String,
                                                   "Total time" :: String,
                                                   "Atoms" :: String)]
-    (parseResult) <- parseGCLfile "examples/benchmark/memberOf.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/divByN.gcl"
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
 
-    putStrLn "Do you want to turn on the heuristics?"
+    -- putStrLn "Do you want to turn on the heuristics?"
     -- heuristics <- getLine
     let heuristics = False
 
     let (Right program) = parseResult
-    let programInput =  (2, uNFOLDLOOP, ifDepth, True)
+    let programInput =  (10, uNFOLDLOOP, ifDepth, True)
     loopProgram program programInput 1
     putStrLn "hello"
 
+    -- Poging om loopProgram wat te verkorten.
+    --let iets = [(x, uNFOLDLOOP, ifDepth, y, z) | z <- z + 1, x <- [2..10], y <- [True, False]]
+    --putStrLn $ show iets
+    --mapM_ (runProgram program) iets
+
+
 loopProgram :: Program -> ProgramInput -> Int -> IO ()
-loopProgram program input@(1, x, y, False) round = do
+loopProgram program input@(2, x, y, False) round = do
     runProgram program input round
 
 loopProgram program input@(n, x, y, False) round = do
     runProgram program input round
     loopProgram program (n - 1, x, y, False) (round + 1)
 
-loopProgram program input@(1, x, y, True) round = do
+loopProgram program input@(2, x, y, True) round = do
     runProgram program input round
-    loopProgram program (8, x, y, False) (round + 1)
+    loopProgram program (10, x, y, False) (round + 1)
 
 loopProgram program input@(n, x, y, True) round = do
     runProgram program input round
@@ -138,6 +138,7 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
     -- every path ends with the precondition
     let branchRoot = [(maxDepth ,[(Assume pre)])]
     -- get all the feasible branches
+    -- Kunnen we dit niet uitzetten als we de heuristieken uit hebben staan?
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
     putStrLn "infeasible and time"
     putStrLn $ show infeasibleAmount
@@ -152,8 +153,6 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
     -- validate all feasible paths
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
 
-    --putStrLn "Paths checked on validity:"
-    --putStrLn $ show $ length pathDataList
 
     displayTimeMetrics validationTime
     atoms <- displayAtomSize post (map snd programPaths)
@@ -184,8 +183,8 @@ checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO [(B
 checkValidityOfProgram post [] vardec = return []
 checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
-    putStrLn $ show post
-    putStrLn $ show wlp
+    --putStrLn $ show post
+    --putStrLn $ show wlp
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
 
