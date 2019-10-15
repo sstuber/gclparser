@@ -21,7 +21,7 @@ uNFOLDLOOP = 10
 maxDepth :: Int
 maxDepth = 30
 
-ifDepth = 10000
+ifDepth = 10
 
 -- TODO Implement extra heuristics, possibly from papers.
 
@@ -39,7 +39,7 @@ main = do
                                                   "Time spent on finding unfeasible paths" :: String,
                                                   "Total time" :: String,
                                                   "Atoms" :: String)]
-    (parseResult) <- parseGCLfile "examples/benchmark/divByN.gcl"
+    (parseResult) <- parseGCLfile "examples/benchmark/pullUp.gcl"
     putStrLn "ParseResult"
     putStrLn (show parseResult)
     putStrLn ""
@@ -151,7 +151,7 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic)  = do
 
     displayTimeMetrics validationTime
     atoms <- displayAtomSize post (map snd programPaths)
-    let programValidity = isProgramValid pathDataList
+    let programValidity = isProgramValid $ reverse pathDataList
 
     return (validationTime, atoms, length pathDataList, infeasibleTime, infeasibleAmount, programValidity)
 
@@ -179,11 +179,12 @@ checkValidityOfProgram post [] vardec = return []
 checkValidityOfProgram post (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
     --putStrLn $ show post
-    putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
-    putStrLn $ show wlp
+    --putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
+    --putStrLn $ show wlp
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
-
+    putStrLn "!!!--------------------VALIDITY--------------------!!!"
+    putStrLn $ show validity
     res       <- if validity then do
           result <- (checkValidityOfProgram post t vardec)
           return result
