@@ -26,9 +26,9 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
 
 
-    putStrLn "path depth ?"
-    putStrLn $ show (length programPaths)
-    mapM (\x -> putStrLn $ show (depthK - (fst x ))) programPaths
+    --putStrLn "path depth ?"
+    --putStrLn $ show (length programPaths)
+    --mapM (\x -> putStrLn $ show (depthK - (fst x ))) programPaths
     let test = map snd programPaths
     --putStrLn "testDepth"
     --putStrLn $ show testDepth

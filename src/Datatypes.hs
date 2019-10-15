@@ -10,6 +10,8 @@ data Z3Validation = Valid | UnValid | Z3undef deriving (Show, Eq)
 type ProgramInput = (Int, Int, Int, Bool, Int)
 type ProgramOutput = (TimeSpec, Int, Int, TimeSpec, Int, Bool)
 
+type MetricParams = (Int, Int, Int)
+
 type PreprocessResult = (Stmt, Maybe PreCon, Maybe PostCon, [VarDeclaration])--, PostCon
 type PreCon           = Expr
 type PostCon          = Expr
