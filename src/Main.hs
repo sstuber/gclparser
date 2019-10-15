@@ -16,10 +16,10 @@ import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy as BS
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 10
+uNFOLDLOOP = 15
 
 maxDepth :: Int
-maxDepth = 30
+maxDepth = 50
 
 ifDepth = 10
 
@@ -78,6 +78,8 @@ loopProgram program input@(n, x, y, True) round = do
 runProgram :: Program -> ProgramInput -> Int -> IO ()
 runProgram program programInput@(n, loopdepth, ifdepth, heur) round = do
     ((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
+
+    putStrLn $ show programInput
 
     putStrLn "------------- VALIDATION TIME -------------"
     putStrLn $ show validationTime
@@ -183,8 +185,8 @@ checkValidityOfProgram post (h : t) vardec = do
     --putStrLn $ show wlp
     z3Result  <- (isExprValid wlp vardec)
     let validity = z3Result == Valid
-    putStrLn "!!!--------------------VALIDITY--------------------!!!"
-    putStrLn $ show validity
+    --putStrLn "!!!--------------------VALIDITY--------------------!!!"
+    --putStrLn $ show validity
     res       <- if validity then do
           result <- (checkValidityOfProgram post t vardec)
           return result

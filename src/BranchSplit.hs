@@ -64,14 +64,15 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth heuristics = do
     putStrLn "amount of paths for and after while"
     putStrLn $ show (length xs)
     --(bodyDepth, infeasible2, time2, bodyResult)      <- scanWhile
-    (bodyDepth, infeasible2, time2, bodyResult)      <- recursiveWhile varDecls (heuristics, n) stmt exp n (ifDepth, 0, TimeSpec 0 0, [xs])
+    (bodyDepth, infeasible2, time2, bodyResult)      <- recursiveWhile varDecls (heuristics, n) stmt exp n (ifDepth, 0, TimeSpec 0 0, []) xs
     putStrLn $ show (length (concat bodyResult))
 
     --printList (concat bodyResult)
-    ((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls ifDepth (concat bodyResult))
+    putStrLn $ show (length (concat bodyResult))
+    --((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls bodyDepth (concat bodyResult))
     --putStrLn $ show (length bodyPaths)
     --printList bodyPaths
-    return (bodyDepth -1 ,infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3,  emptyLoop ++ (addStmtToPaths (Assume (OpNeg exp)) bodyPaths))
+    return (bodyDepth -1 ,infeasible1 + infeasible2, time1 + time2,  emptyLoop ++ (addStmtToPaths (Assume (OpNeg exp)) (concat bodyResult)))
       where
         scanWhile           = foldM (scanfn varDecls heuristics stmt exp n)  (ifDepth, 0, TimeSpec 0 0, [xs]) [1..n]
         --scanfn (depth, acc) _        = do
@@ -91,22 +92,26 @@ scanfn varDecls heuristics stmt guard n (depth, infeasible1, time1, acc) _      
     (newDepth,infeasible3, time3 , res) <- analyseTree varDecls (addStmtToPaths (Assume guard) paths) stmt n depth heuristics
     return (newDepth -1, infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3, (res : acc))
 
-recursiveWhile :: [VarDeclaration] -> (Bool, Int) -> Stmt -> Expr-> Int -> (Int, Int, TimeSpec, [[(Int, ProgramPath)]]) -> IO (Int, Int, TimeSpec, [[(Int, ProgramPath)]])
-recursiveWhile varDecls (True,0)        body guard n newTuple                                = do
+recursiveWhile :: [VarDeclaration] -> (Bool, Int) -> Stmt -> Expr-> Int -> (Int, Int, TimeSpec, [[(Int, ProgramPath)]]) -> [(Int, ProgramPath)] -> IO (Int, Int, TimeSpec, [[(Int, ProgramPath)]])
+recursiveWhile varDecls (True,0)        body guard n newTuple                               bodyTillNow = do
     putStrLn "works i=0"
-    return newTuple
-recursiveWhile varDecls (heuristics, i) body guard n t@(depth, infeasible1, time1, ([]:xs))  = do
+    return (newTuple)
+recursiveWhile varDecls (heuristics, i) body guard n t [] = do
     putStrLn "works last added is [] "
     return t
-recursiveWhile varDecls (heuristics, i) body guard n t@(depth, infeasible1, time1, acc)      = do
+recursiveWhile varDecls (heuristics, i) body guard n t@(depth, infeasible1, time1, acc)     bodyTillNow = do
     -- check feasiblity paths
-    ((infeasible2, paths2),time2 ) <- stopWatch ( filterValidPaths guard heuristics varDecls depth (head acc))
+    ((infeasible2, paths2),time2 ) <- stopWatch ( filterValidPaths guard heuristics varDecls depth bodyTillNow)
     -- create body paths
-    (newDepth,infeasible3, time3 , res) <- analyseTree varDecls (addStmtToPaths (Assume guard) paths2) body n depth heuristics
+    (newDepth,infeasible3, time3 , pathAfterWhile) <- analyseTree varDecls (addStmtToPaths (Assume guard) paths2) body n (depth-1) heuristics
+
+    --
+    ((infeasible4, paths4),time4 ) <- stopWatch ( filterValidPaths (OpNeg guard) heuristics varDecls newDepth pathAfterWhile)
+    let paths5 = addStmtToPaths (Assume (OpNeg guard)) paths4
 
     putStrLn $ show i
-    let newTuple = (newDepth -1, infeasible1 + infeasible2 + infeasible3, time1 + time2 + time3, (res : acc))
-    recursiveWhile varDecls (heuristics, i-1) body guard n newTuple
+    let newTuple = (newDepth, infeasible1 + infeasible2 + infeasible3 + infeasible4, time1 + time2 + time3 + time4, (paths5 : acc))
+    recursiveWhile varDecls (heuristics, i-1) body guard n newTuple pathAfterWhile
 
 
 filterValidPaths :: Expr -> Bool -> [VarDeclaration] -> Int -> [(Int, ProgramPath)] -> IO (Int, [(Int, ProgramPath)])
