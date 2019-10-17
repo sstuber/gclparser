@@ -33,7 +33,7 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     --putStrLn "testDepth"
     --putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post heuristic test varDecls)
 
     putStrLn "amount of generated paths"
     putStrLn $ show (length programPaths)
@@ -43,19 +43,26 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
 
     return (validationTime, atoms, length pathDataList, infeasibleTime, infeasibleAmount, programValidity)
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO [(Bool, ProgramPath)]
-checkValidityOfProgram post [] vardec = return []
-checkValidityOfProgram post (h : t) vardec = do
+checkValidityOfProgram :: PostCon -> Bool -> [ProgramPath] -> [VarDeclaration] -> IO [(Bool, ProgramPath)]
+checkValidityOfProgram post heur [] vardec = return []
+checkValidityOfProgram post heur (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
     --putStrLn $ show post
-    --putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
-    --putStrLn $ show wlp
-    z3Result  <- (isExprValid wlp vardec)
+    putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
+    putStrLn $ show wlp
+
+    let newWlp = if heur then
+          normalizeQuantifiers wlp
+        else
+          wlp
+    putStrLn "normal wlp -------------------------------"
+    putStrLn $ show newWlp
+    z3Result  <- (isExprValid newWlp vardec)
     let validity = z3Result == Valid
     --putStrLn "!!!--------------------VALIDITY--------------------!!!"
     --putStrLn $ show validity
     res       <- if validity then do
-          result <- (checkValidityOfProgram post t vardec)
+          result <- (checkValidityOfProgram post heur t vardec)
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
@@ -64,6 +71,45 @@ checkValidityOfProgram post (h : t) vardec = do
 
 
 --------------------------------------------- SUPPORT FUNCTIONS ---------------------------------
+data Quantifier = A String | E String
+
+normalizeQuantifiers :: Expr -> Expr
+normalizeQuantifiers e = let (quants, expr ) = removeQuantifiers e in addQuantifiers quants expr
+
+addQuantifiers :: [Quantifier] -> Expr -> Expr
+addQuantifiers [] e = e
+addQuantifiers ((A var): xs) e = Forall var $ addQuantifiers xs e
+addQuantifiers ((E var): xs) e = (OpNeg (Forall var (OpNeg (addQuantifiers xs e))))
+
+removeQuantifiers :: Expr ->  ([Quantifier], Expr)
+removeQuantifiers (Parens expr) =  (fst e , Parens (snd e))
+    where
+      e = removeQuantifiers expr
+
+removeQuantifiers (ArrayElem exp1 exp2 ) = ((fst e1 ++  fst e2) , ArrayElem (snd e1) (snd e2))
+    where
+      e1 = removeQuantifiers exp1
+      e2 = removeQuantifiers exp2
+
+removeQuantifiers (BinopExpr op x y) = (fst e1 ++ fst e2, BinopExpr op (snd e1) (snd e2))
+    where
+      e1 = removeQuantifiers x
+      e2 = removeQuantifiers y
+
+removeQuantifiers (OpNeg (Forall var (OpNeg expr))) = (E var : fst e , snd e)
+    where
+      e = removeQuantifiers expr
+
+removeQuantifiers (OpNeg exp) = (fst e, OpNeg (snd e))
+    where
+      e = removeQuantifiers exp
+
+removeQuantifiers (Forall var expr) = (A var : fst e, snd e)
+    where
+      e = removeQuantifiers expr
+
+removeQuantifiers e = ([], e)
+
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
