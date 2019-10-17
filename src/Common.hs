@@ -73,6 +73,13 @@ replaceVarStmt name new (Skip       )                 = Skip
 replaceVarStmt name new s = s
 
 
+timeSpectoDouble :: TimeSpec -> Double
+timeSpectoDouble t = (seconds + nseconds) :: Double
+    where
+      seconds = (fromIntegral (sec t)) :: Double
+      nseconds = ((fromIntegral (nsec t) :: Double ) / 1000000000 :: Double)
+
+
 fst3 :: (a, b, c) -> a
 fst3 (a, b, c) = a
 

@@ -155,9 +155,9 @@ appendMetricFile caseFilename  (input ,((validationTime, atoms, pathsChecked, in
                                       n :: Int,
                                       pathsChecked :: Int,
                                       infeasibleAmount :: Int,
-                                      show validationTime :: String,
-                                      show infeasibleTime :: String,
-                                      show totaltime :: String,
+                                      (timeSpectoDouble validationTime) :: Double,
+                                      (timeSpectoDouble infeasibleTime) :: Double,
+                                      (timeSpectoDouble totaltime) :: Double,
                                       atoms :: Int)]
 
 printResult :: (ProgramInput, (ProgramOutput, TimeSpec)) -> IO ()
@@ -218,9 +218,9 @@ runProgram program programInput@(n, loopdepth, ifdepth, heur, k) round = do
                                                    n :: Int,
                                                    pathsChecked :: Int,
                                                    infeasibleAmount :: Int,
-                                                   show validationTime :: String,
-                                                   show infeasibleTime :: String,
-                                                   show totaltime :: String,
+                                                   show (timeSpectoDouble validationTime) :: String,
+                                                   show (timeSpectoDouble infeasibleTime) :: String,
+                                                   show (timeSpectoDouble totaltime) :: String,
                                                    atoms :: Int)]
     putStrLn "END"
 
