@@ -48,15 +48,15 @@ checkValidityOfProgram post heur [] vardec = return []
 checkValidityOfProgram post heur (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
     --putStrLn $ show post
-    putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
-    putStrLn $ show wlp
+    --putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
+    --putStrLn $ show wlp
 
     let newWlp = if heur then
           normalizeQuantifiers wlp
         else
           wlp
-    putStrLn "normal wlp -------------------------------"
-    putStrLn $ show newWlp
+    --putStrLn "normal wlp -------------------------------"
+    --putStrLn $ show newWlp
     z3Result  <- (isExprValid newWlp vardec)
     let validity = z3Result == Valid
     --putStrLn "!!!--------------------VALIDITY--------------------!!!"
@@ -71,44 +71,60 @@ checkValidityOfProgram post heur (h : t) vardec = do
 
 
 --------------------------------------------- SUPPORT FUNCTIONS ---------------------------------
-data Quantifier = A String | E String
+data Quantifier = A String String | E String String
+
+ -- [replicate k ['a'..'z'] | k <- [1..]] >>= sequence
 
 normalizeQuantifiers :: Expr -> Expr
-normalizeQuantifiers e = let (quants, expr ) = removeQuantifiers e in addQuantifiers quants expr
+normalizeQuantifiers e = addQuantifiers quants newVarExpr
+    where
+      ((quants, expr ),_) = runSupply (removeQuantifiers e) ([replicate k ['a'..'z'] | k <- [1..]] >>= sequence)
+      quantsMap           = quantsToMap quants M.empty
+      (newVarExpr,_)      = runSupply (replaceVarWithMap quantsMap expr) [1..]
+
+quantsToMap :: [Quantifier] -> M.Map String String-> M.Map String String
+quantsToMap [] map1 = map1
+quantsToMap ((A value key): xs) map1 = M.insert key value (quantsToMap xs map1)
+quantsToMap ((E value key): xs) map1 = M.insert key value (quantsToMap xs map1)
+
 
 addQuantifiers :: [Quantifier] -> Expr -> Expr
 addQuantifiers [] e = e
-addQuantifiers ((A var): xs) e = Forall var $ addQuantifiers xs e
-addQuantifiers ((E var): xs) e = (OpNeg (Forall var (OpNeg (addQuantifiers xs e))))
+addQuantifiers ((A var _): xs) e = Forall var $ addQuantifiers xs e
+addQuantifiers ((E var _): xs) e = (OpNeg (Forall var (OpNeg (addQuantifiers xs e))))
 
-removeQuantifiers :: Expr ->  ([Quantifier], Expr)
-removeQuantifiers (Parens expr) =  (fst e , Parens (snd e))
-    where
-      e = removeQuantifiers expr
+removeQuantifiers :: Expr ->  Supply String ([Quantifier], Expr)
+removeQuantifiers (Parens expr) = do
+    e <- removeQuantifiers expr
+    return (fst e , Parens (snd e))
 
-removeQuantifiers (ArrayElem exp1 exp2 ) = ((fst e1 ++  fst e2) , ArrayElem (snd e1) (snd e2))
-    where
-      e1 = removeQuantifiers exp1
-      e2 = removeQuantifiers exp2
 
-removeQuantifiers (BinopExpr op x y) = (fst e1 ++ fst e2, BinopExpr op (snd e1) (snd e2))
-    where
-      e1 = removeQuantifiers x
-      e2 = removeQuantifiers y
+removeQuantifiers (ArrayElem exp1 exp2 ) = do
+    e1 <- removeQuantifiers exp1
+    e2 <- removeQuantifiers exp2
+    return ((fst e1 ++  fst e2) , ArrayElem (snd e1) (snd e2))
 
-removeQuantifiers (OpNeg (Forall var (OpNeg expr))) = (E var : fst e , snd e)
-    where
-      e = removeQuantifiers expr
+removeQuantifiers (BinopExpr op x y) = do
+    e1 <- removeQuantifiers x
+    e2 <- removeQuantifiers y
+    return (fst e1 ++ fst e2, BinopExpr op (snd e1) (snd e2))
 
-removeQuantifiers (OpNeg exp) = (fst e, OpNeg (snd e))
-    where
-      e = removeQuantifiers exp
+removeQuantifiers (OpNeg (Forall var (OpNeg expr))) = do
+    e <- removeQuantifiers expr
+    prefix <- supply
+    return (E (prefix ++ var) var : fst e , snd e)
 
-removeQuantifiers (Forall var expr) = (A var : fst e, snd e)
-    where
-      e = removeQuantifiers expr
 
-removeQuantifiers e = ([], e)
+removeQuantifiers (OpNeg exp) = do
+    e <- removeQuantifiers exp
+    return (fst e, OpNeg (snd e))
+
+removeQuantifiers (Forall var expr) = do
+    prefix <- supply
+    e <- removeQuantifiers expr
+    return (A (prefix ++ var) var : fst e, snd e)
+
+removeQuantifiers e = return ([], e)
 
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
