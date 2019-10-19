@@ -23,6 +23,8 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     let branchRoot = [(depthK ,[(Assume pre)])]
     -- get all the feasible branches
     -- Kunnen we dit niet uitzetten als we de heuristieken uit hebben staan?
+
+    putStrLn "----------------------- Creating banches -----------------------"
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
 
 
@@ -33,7 +35,8 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     --putStrLn "testDepth"
     --putStrLn $ show testDepth
     -- validate all feasible paths
-    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post test varDecls)
+    putStrLn " ---------------------- Checking validity ----------------------"
+    (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post heuristic test varDecls)
 
     putStrLn "amount of generated paths"
     putStrLn $ show (length programPaths)
@@ -43,19 +46,26 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
 
     return (validationTime, atoms, length pathDataList, infeasibleTime, infeasibleAmount, programValidity)
 
-checkValidityOfProgram :: PostCon -> [ProgramPath] -> [VarDeclaration] -> IO [(Bool, ProgramPath)]
-checkValidityOfProgram post [] vardec = return []
-checkValidityOfProgram post (h : t) vardec = do
+checkValidityOfProgram :: PostCon -> Bool -> [ProgramPath] -> [VarDeclaration] -> IO [(Bool, ProgramPath)]
+checkValidityOfProgram post heur [] vardec = return []
+checkValidityOfProgram post heur (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
     --putStrLn $ show post
     --putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
     --putStrLn $ show wlp
-    z3Result  <- (isExprValid wlp vardec)
+
+    let newWlp = if heur then
+          normalizeQuantifiers wlp
+        else
+          wlp
+    --putStrLn "normal wlp -------------------------------"
+    --putStrLn $ show newWlp
+    z3Result  <- (isExprValid newWlp vardec)
     let validity = z3Result == Valid
     --putStrLn "!!!--------------------VALIDITY--------------------!!!"
     --putStrLn $ show validity
     res       <- if validity then do
-          result <- (checkValidityOfProgram post t vardec)
+          result <- (checkValidityOfProgram post heur t vardec)
           return result
         else do
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
@@ -64,6 +74,7 @@ checkValidityOfProgram post (h : t) vardec = do
 
 
 --------------------------------------------- SUPPORT FUNCTIONS ---------------------------------
+
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
