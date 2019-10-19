@@ -27,7 +27,7 @@ ifDepth = 10
 
 metricsDirectory = "metrics/"
 metricsFileType = ".csv"
-benchmarkDirectory = ".examples/benchmark/"
+benchmarkDirectory = "examples/benchmark/"
 benchmarkFileType = ".gcl"
 -- loop guard k
 benchmarkFiletest = benchmarkFile "divByN" [5] [5] [50]
