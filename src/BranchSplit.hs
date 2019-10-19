@@ -124,7 +124,8 @@ filterValidPaths g heuristics varDecls ifDepth paths = do
 
 isBranchValid :: [VarDeclaration] -> Expr -> (Int, ProgramPath) -> IO Bool
 isBranchValid varDecls g (i, path) = do
-    test1 <-isGuardSat finalWlp varDecls
+    let normalizedWlp = normalizeQuantifiers finalWlp
+    test1 <-isGuardSat normalizedWlp varDecls
     test2 <-isSat test1
     --putStrLn $ show test2
     --putStrLn $ show finalWlp

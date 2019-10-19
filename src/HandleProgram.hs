@@ -23,6 +23,8 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     let branchRoot = [(depthK ,[(Assume pre)])]
     -- get all the feasible branches
     -- Kunnen we dit niet uitzetten als we de heuristieken uit hebben staan?
+
+    putStrLn "----------------------- Creating banches -----------------------"
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
 
 
@@ -33,6 +35,7 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     --putStrLn "testDepth"
     --putStrLn $ show testDepth
     -- validate all feasible paths
+    putStrLn " ---------------------- Checking validity ----------------------"
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post heuristic test varDecls)
 
     putStrLn "amount of generated paths"
@@ -71,60 +74,6 @@ checkValidityOfProgram post heur (h : t) vardec = do
 
 
 --------------------------------------------- SUPPORT FUNCTIONS ---------------------------------
-data Quantifier = A String String | E String String
-
- -- [replicate k ['a'..'z'] | k <- [1..]] >>= sequence
-
-normalizeQuantifiers :: Expr -> Expr
-normalizeQuantifiers e = addQuantifiers quants newVarExpr
-    where
-      ((quants, expr ),_) = runSupply (removeQuantifiers e) ([replicate k ['a'..'z'] | k <- [1..]] >>= sequence)
-      quantsMap           = quantsToMap quants M.empty
-      (newVarExpr,_)      = runSupply (replaceVarWithMap quantsMap expr) [1..]
-
-quantsToMap :: [Quantifier] -> M.Map String String-> M.Map String String
-quantsToMap [] map1 = map1
-quantsToMap ((A value key): xs) map1 = M.insert key value (quantsToMap xs map1)
-quantsToMap ((E value key): xs) map1 = M.insert key value (quantsToMap xs map1)
-
-
-addQuantifiers :: [Quantifier] -> Expr -> Expr
-addQuantifiers [] e = e
-addQuantifiers ((A var _): xs) e = Forall var $ addQuantifiers xs e
-addQuantifiers ((E var _): xs) e = (OpNeg (Forall var (OpNeg (addQuantifiers xs e))))
-
-removeQuantifiers :: Expr ->  Supply String ([Quantifier], Expr)
-removeQuantifiers (Parens expr) = do
-    e <- removeQuantifiers expr
-    return (fst e , Parens (snd e))
-
-
-removeQuantifiers (ArrayElem exp1 exp2 ) = do
-    e1 <- removeQuantifiers exp1
-    e2 <- removeQuantifiers exp2
-    return ((fst e1 ++  fst e2) , ArrayElem (snd e1) (snd e2))
-
-removeQuantifiers (BinopExpr op x y) = do
-    e1 <- removeQuantifiers x
-    e2 <- removeQuantifiers y
-    return (fst e1 ++ fst e2, BinopExpr op (snd e1) (snd e2))
-
-removeQuantifiers (OpNeg (Forall var (OpNeg expr))) = do
-    e <- removeQuantifiers expr
-    prefix <- supply
-    return (E (prefix ++ var) var : fst e , snd e)
-
-
-removeQuantifiers (OpNeg exp) = do
-    e <- removeQuantifiers exp
-    return (fst e, OpNeg (snd e))
-
-removeQuantifiers (Forall var expr) = do
-    prefix <- supply
-    e <- removeQuantifiers expr
-    return (A (prefix ++ var) var : fst e, snd e)
-
-removeQuantifiers e = return ([], e)
 
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
