@@ -18,24 +18,36 @@ import qualified Data.ByteString.Lazy as BS
 import HandleProgram
 
 uNFOLDLOOP :: Int
-uNFOLDLOOP = 15
+uNFOLDLOOP = 50
 
 maxDepth :: Int
 maxDepth = 50
 
 ifDepth = 10
 
-metricsDirectory = "../metrics/"
+metricsDirectory = "metrics/"
 metricsFileType = ".csv"
-benchmarkDirectory = "../examples/benchmark/"
+benchmarkDirectory = ".examples/benchmark/"
 benchmarkFileType = ".gcl"
 -- loop guard k
-benchmarkFiletest = benchmarkFile "pullUp" [5,10] [5] [20]
+benchmarkFiletest = benchmarkFile "divByN" [5] [5] [50]
+
+benchmarkTest x = benchmarkFile x  [10,20] [5,10,15] [30,50]
+
+-- File name: 'name'_k_loop_guard
 
 -- TODO Implement extra heuristics, possibly from papers.
 
 main :: IO ()
 main = do
+    putStrLn "validating memberof"
+    benchmarkTest "memberOf"
+
+    putStrLn "validating pullUp"
+    benchmarkTest "pullUp"
+
+main2 :: IO ()
+main2 = do
     BS.writeFile "../metrics/metrics.csv" $ encode [("Experiment round" :: String,
                                                   "Validity" :: String,
                                                   "Heuristics" :: String,
@@ -49,7 +61,7 @@ main = do
                                                   "Total time" :: String,
                                                   "Atoms" :: String)]
 
-    (parseResult) <- parseGCLfile "../examples/benchmark/pullUp.gcl"
+    (parseResult) <- parseGCLfile "../examples/benchmark/divByN.gcl"
 
     putStrLn "ParseResult"
     putStrLn (show parseResult)
@@ -60,8 +72,11 @@ main = do
     let heuristics = False
 
     let (Right program) = parseResult
-    let programInput =  (10, uNFOLDLOOP, ifDepth, True, maxDepth)
-    loopProgram program programInput 1
+    let programInput =  (4, uNFOLDLOOP, ifDepth, False, maxDepth)
+    putStrLn "TEST =================================="
+    runProgram program programInput 1
+
+    --loopProgram program programInput 1
     putStrLn "hello"
 
     -- Poging om loopProgram wat te verkorten.
@@ -165,7 +180,7 @@ printResult (input, ((validationTime, atoms, pathsChecked, infeasibleTime, infea
     putStrLn $ show input
 
     putStrLn "------------- VALIDATION TIME -------------"
-    putStrLn $ show validationTime
+    putStrLn $ show (timeSpectoDouble validationTime)
 
     putStrLn "------------- TOTAL ATOMS -----------------"
     putStrLn $ show atoms
@@ -176,7 +191,7 @@ printResult (input, ((validationTime, atoms, pathsChecked, infeasibleTime, infea
     putStrLn $ show pathsChecked
 
     putStrLn "------------- EXTRA TIME FEASIBILITY ------"
-    putStrLn $ show infeasibleTime
+    putStrLn $ show (timeSpectoDouble infeasibleTime)
 
     putStrLn "------------- PROGRAM VALID ----------------"
     putStrLn $ show programValidity

@@ -61,14 +61,15 @@ analyseTree varDecls xs s@(While exp stmt) n ifDepth heuristics = do
     ((infeasible1, emptyLoopPath), time1) <- stopWatch (filterValidPaths (OpNeg exp) heuristics varDecls ifDepth xs)
     let emptyLoop   = (addStmtToPaths (Assume (OpNeg exp)) emptyLoopPath)
 
-    putStrLn "amount of paths for and after while"
-    putStrLn $ show (length xs)
+    --putStrLn "amount of paths for and after while"
+    --putStrLn $ show (length xs)
     --(bodyDepth, infeasible2, time2, bodyResult)      <- scanWhile
     (bodyDepth, infeasible2, time2, bodyResult)      <- recursiveWhile varDecls (heuristics, n) stmt exp n (ifDepth, 0, TimeSpec 0 0, []) xs
-    putStrLn $ show (length (concat bodyResult))
+    --putStrLn $ show (length (concat bodyResult))
 
-    --printList (concat bodyResult)
-    putStrLn $ show (length (concat bodyResult))
+    --putStrLn "after while loop "
+    --putStrLn $ show (length (concat bodyResult))
+    --putStrLn $ show bodyDepth
     --((infeasible3, bodyPaths), time3 )    <- stopWatch( filterValidPaths (OpNeg exp) heuristics varDecls bodyDepth (concat bodyResult))
     --putStrLn $ show (length bodyPaths)
     --printList bodyPaths
@@ -94,10 +95,10 @@ scanfn varDecls heuristics stmt guard n (depth, infeasible1, time1, acc) _      
 
 recursiveWhile :: [VarDeclaration] -> (Bool, Int) -> Stmt -> Expr-> Int -> (Int, Int, TimeSpec, [[(Int, ProgramPath)]]) -> [(Int, ProgramPath)] -> IO (Int, Int, TimeSpec, [[(Int, ProgramPath)]])
 recursiveWhile varDecls (True,0)        body guard n newTuple                               bodyTillNow = do
-    putStrLn "works i=0"
+    --putStrLn "works i=0"
     return (newTuple)
 recursiveWhile varDecls (heuristics, i) body guard n t [] = do
-    putStrLn "works last added is [] "
+    --putStrLn "works last added is [] "
     return t
 recursiveWhile varDecls (heuristics, i) body guard n t@(depth, infeasible1, time1, acc)     bodyTillNow = do
     -- check feasiblity paths
@@ -109,7 +110,7 @@ recursiveWhile varDecls (heuristics, i) body guard n t@(depth, infeasible1, time
     ((infeasible4, paths4),time4 ) <- stopWatch ( filterValidPaths (OpNeg guard) heuristics varDecls newDepth pathAfterWhile)
     let paths5 = addStmtToPaths (Assume (OpNeg guard)) paths4
 
-    putStrLn $ show i
+    --putStrLn $ show i
     let newTuple = (newDepth, infeasible1 + infeasible2 + infeasible3 + infeasible4, time1 + time2 + time3 + time4, (paths5 : acc))
     recursiveWhile varDecls (heuristics, i-1) body guard n newTuple pathAfterWhile
 
