@@ -25,18 +25,16 @@ maxDepth = 50
 
 ifDepth = 10
 
-metricsDirectory = "metrics/"
+metricsDirectory = "../metrics/"
 metricsFileType = ".csv"
-benchmarkDirectory = "examples/benchmark/"
+benchmarkDirectory = "../examples/benchmark/"
 benchmarkFileType = ".gcl"
 -- loop guard k
 benchmarkFiletest = benchmarkFile "divByN" [5] [5] [50]
 
+-- run a benchmark test on a file from the metrics/benchmark folder
 benchmarkTest x = benchmarkFile x  [10,20] [5,10,15] [30,50]
 
--- File name: 'name'_k_loop_guard
-
--- TODO Implement extra heuristics, possibly from papers.
 
 main :: IO ()
 main = do
@@ -46,43 +44,8 @@ main = do
     putStrLn "validating pullUp"
     benchmarkTest "pullUp"
 
-main2 :: IO ()
-main2 = do
-    BS.writeFile "../metrics/metrics.csv" $ encode [("Experiment round" :: String,
-                                                  "Validity" :: String,
-                                                  "Heuristics" :: String,
-                                                  "Loop depth" :: String,
-                                                  "If depth" :: String,
-                                                  "N" :: String,
-                                                  "Total number of inspected paths" :: String,
-                                                  "Number of unfeasible paths" :: String,
-                                                  "Time spent on verification" :: String,
-                                                  "Time spent on finding unfeasible paths" :: String,
-                                                  "Total time" :: String,
-                                                  "Atoms" :: String)]
-
-    (parseResult) <- parseGCLfile "../examples/benchmark/divByN.gcl"
-
-    putStrLn "ParseResult"
-    putStrLn (show parseResult)
-    putStrLn ""
-
-    -- putStrLn "Do you want to turn on the heuristics?"
-    -- heuristics <- getLine
-    let heuristics = False
-
-    let (Right program) = parseResult
-    let programInput =  (4, uNFOLDLOOP, ifDepth, False, maxDepth)
-    putStrLn "TEST =================================="
-    runProgram program programInput 1
-
-    --loopProgram program programInput 1
-    putStrLn "hello"
-
-    -- Poging om loopProgram wat te verkorten.
-    --let iets = [(x, uNFOLDLOOP, ifDepth, y) | x <- [2..10], y <- [True, False]]
-    --putStrLn $ show iets
-    --mapM_ (runProgram program) iets
+    putStrLn "validating divByN"
+    benchmarkTest "divByN"
 
 {-
 
@@ -92,6 +55,7 @@ for every file
 
 -}
 
+-- run all possible combinations of the metric input parameters on the benchmark file
 benchmarkFile :: String -> [Int] -> [Int] -> [Int] -> IO ()
 benchmarkFile filename loopDepths guardDepths kDepths = do
     (Right program) <- parseGCLfile $ benchmarkDirectory ++ filename ++ benchmarkFileType
@@ -103,6 +67,7 @@ benchmarkFile filename loopDepths guardDepths kDepths = do
     mapM (runBenchmark program filename) parameterCombinations
     return ()
 
+-- run a set of metric parameters for all possible combinations of N and heuristics
 runBenchmark :: Program -> String -> MetricParams -> IO ()
 runBenchmark program caseFileName params = do
     let caseName = caseFileName ++ (metricParamsToString params)
@@ -133,12 +98,14 @@ runBenchmark program caseFileName params = do
 metricParamsToString:: MetricParams -> String
 metricParamsToString (k, loop, guard) = "_" ++ (show k) ++ "_" ++ (show loop) ++ "_" ++ (show guard)
 
+-- run a set of program inputs and generate output
 testProgram :: Program -> ProgramInput -> IO (ProgramInput, (ProgramOutput, TimeSpec))
 testProgram program programInput = do
     programResult <- stopWatch (processProgram program programInput)
     printResult (programInput, programResult)
     return (programInput, programResult)
 
+-- from a set of metric parameters, generate a list of program inputs over N [2..10] and heuristics [True,False]
 generateNInputs :: MetricParams -> [ProgramInput]
 generateNInputs (kDepth, loopDepth, guardDepth) = [ (n, loopDepth, guardDepth, heur, kDepth) |  heur <- [True,False], n <- [2..10]]
 
@@ -157,6 +124,7 @@ generateNInputs (kDepth, loopDepth, guardDepth) = [ (n, loopDepth, guardDepth, h
  - Total size of formulas
 -}
 
+-- print a program output onto the specific csv file
 appendMetricFile :: String ->  (ProgramInput, (ProgramOutput, TimeSpec)) -> IO ()
 appendMetricFile caseFilename  (input ,((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime)) = do
     let filename = metricsDirectory ++ caseFilename ++ metricsFileType
@@ -199,45 +167,6 @@ printResult (input, ((validationTime, atoms, pathsChecked, infeasibleTime, infea
     putStrLn "-------------- TOTALTIME ------------------"
     putStrLn $ "Total runtime of the program is: " ++ show (sec totaltime)
                      ++ " seconds and " ++ show (nsec totaltime) ++ " nanoseconds."
-
-loopProgram :: Program -> ProgramInput -> Int -> IO ()
-loopProgram program input@(2, x, y, False, k) round = do
-    runProgram program input round
-
-loopProgram program input@(n, x, y, False,k) round = do
-    runProgram program input round
-    loopProgram program (n - 1, x, y, False,k) (round + 1)
-
-loopProgram program input@(2, x, y, True,k) round = do
-    runProgram program input round
-    loopProgram program (10, x, y, False,k) (round + 1)
-
-loopProgram program input@(n, x, y, True,k) round = do
-    runProgram program input round
-    loopProgram program (n - 1, x, y, True,k) (round + 1)
-
-runProgram :: Program -> ProgramInput -> Int -> IO ()
-runProgram program programInput@(n, loopdepth, ifdepth, heur, k) round = do
-    tuple@((validationTime, atoms, pathsChecked, infeasibleTime, infeasibleAmount, programValidity), totaltime) <- stopWatch (processProgram program programInput)
-
-    printResult (programInput,tuple)
-
-    --putStrLn "press enter"
-    --getLine
-
-    BS.appendFile "../metrics/metrics.csv" $ encode [(round :: Int,
-                                                   show programValidity :: String,
-                                                   show heur :: String,
-                                                   loopdepth :: Int,
-                                                   ifdepth :: Int,
-                                                   n :: Int,
-                                                   pathsChecked :: Int,
-                                                   infeasibleAmount :: Int,
-                                                   show (timeSpectoDouble validationTime) :: String,
-                                                   show (timeSpectoDouble infeasibleTime) :: String,
-                                                   show (timeSpectoDouble totaltime) :: String,
-                                                   atoms :: Int)]
-    putStrLn "END"
 
 
 
