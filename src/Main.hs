@@ -67,6 +67,11 @@ benchmarkFile filename loopDepths guardDepths kDepths = do
     mapM (runBenchmark program filename) parameterCombinations
     return ()
 
+parseProgramFile :: String -> IO Program
+parseProgramFile s = do
+    (Right program) <- parseGCLfile s
+    return program
+
 -- run a set of metric parameters for all possible combinations of N and heuristics
 runBenchmark :: Program -> String -> MetricParams -> IO ()
 runBenchmark program caseFileName params = do
