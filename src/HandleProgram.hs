@@ -22,19 +22,12 @@ processProgram program (n, loopDepth, ifDepthLocal, heuristic, depthK)  = do
     -- every path ends with the precondition
     let branchRoot = [(depthK ,[(Assume pre)])]
     -- get all the feasible branches
-    -- Kunnen we dit niet uitzetten als we de heuristieken uit hebben staan?
 
     putStrLn "----------------------- Creating banches -----------------------"
     (testDepth, infeasibleAmount, infeasibleTime, programPaths) <- analyseTree varDecls branchRoot stmts loopDepth ifDepthLocal heuristic
 
-
-    --putStrLn "path depth ?"
-    --putStrLn $ show (length programPaths)
-    --mapM (\x -> putStrLn $ show (depthK - (fst x ))) programPaths
     let test = map snd programPaths
-    --putStrLn "testDepth"
-    --putStrLn $ show testDepth
-    -- validate all feasible paths
+
     putStrLn " ---------------------- Checking validity ----------------------"
     (pathDataList, validationTime) <- stopWatch (checkValidityOfProgram post heuristic test varDecls)
 
@@ -50,31 +43,25 @@ checkValidityOfProgram :: PostCon -> Bool -> [ProgramPath] -> [VarDeclaration] -
 checkValidityOfProgram post heur [] vardec = return []
 checkValidityOfProgram post heur (h : t) vardec = do
     let wlp   = foldl (flip generateWlp) post h
-    --putStrLn $ show post
-    --putStrLn "!!!!!!!!!!!WLP!!!!!!!!!!!!!!!!"
-    --putStrLn $ show wlp
 
     let newWlp = if heur then
           normalizeQuantifiers wlp
         else
           wlp
-    --putStrLn "normal wlp -------------------------------"
-    --putStrLn $ show newWlp
+
     z3Result  <- (isExprValid newWlp vardec)
     let validity = z3Result == Valid
-    --putStrLn "!!!--------------------VALIDITY--------------------!!!"
-    --putStrLn $ show validity
+
     res       <- if validity then do
           result <- (checkValidityOfProgram post heur t vardec)
           return result
         else do
+          -- cut the verification early when an invalid path has been found
           putStrLn $ "!!PROGRAM INVALLID!!\n-------------------- \nFailed on path: " ++ (show h)
           return [(False, h)]
     return $ (validity, h) : res
 
-
 --------------------------------------------- SUPPORT FUNCTIONS ---------------------------------
-
 
 replaceNbyIntTree :: Int -> Stmt  -> Stmt
 replaceNbyIntTree i = replaceVarStmt "N" (LitI i)
@@ -89,9 +76,6 @@ isProgramValid :: [(Bool, ProgramPath)] -> Bool
 isProgramValid [] = True
 isProgramValid ((b,p): xs) = b
 
-
-
-
 countAtoms :: Expr -> Int
 countAtoms (BinopExpr And expr1 expr2) = (countAtoms expr1) + (countAtoms expr2)
 countAtoms (BinopExpr Or expr1 expr2) = (countAtoms expr1) + (countAtoms expr2)
@@ -100,18 +84,6 @@ countAtoms (OpNeg expr) = countAtoms expr
 countAtoms (Parens expr) = countAtoms expr
 countAtoms (Forall _ expr) = countAtoms expr
 countAtoms _ = 1
-
--- possibly not usefull
-processSinglePath :: [VarDeclaration] -> Maybe PreCon -> PostCon  -> ProgramPath -> IO Z3Validation
-processSinglePath varDecls pre post path = do
-    let wlp = foldr generateWlp post path
-    let finalWlp = case pre of
-          Nothing -> wlp
-          Just x  -> generateWlp (Assume x) wlp
-
-    isExprValid finalWlp varDecls
-
-
 
 preProcessProgram :: Program -> Int-> IO PreprocessResult
 preProcessProgram program n = do
@@ -123,9 +95,8 @@ preProcessProgram program n = do
     let (uniqueVars,_) = runSupply (renameVars programBody M.empty) [1..]
     let allVarDeclarations = (input program) ++ (output program) ++ (findAllNamesAndTypes uniqueVars)
     putStrLn $ (++) "Total amount of (local) variables: "  $ show . length $ allVarDeclarations
-    -- TODO maybe pretty print all vars
+
     putStrLn ""
-    -- Give back 9 trees, one for every n
     let nPlaced =  replaceNbyIntTree n uniqueVars
 
     putStrLn "Procces pre- and postconditions"
@@ -139,7 +110,6 @@ preProcessProgram program n = do
     putStrLn $ show finalBody
     putStrLn ""
 
-
     putStrLn "End Preprocess"
     putStrLn "------------------------------------------------------------------- "
 
@@ -149,11 +119,8 @@ fetchVarDecls :: Program -> Stmt -> IO [VarDeclaration]
 fetchVarDecls program stmt = do
     let inVars = input program
     let outVars = output program
-    -- TODO vars from blocks to varDecl list
     return (inVars ++ outVars)
 
-
--- TODO write a function like this for postCondition except post condition has to be present
 removePreCondition :: Maybe PreCon -> Stmt -> IO Stmt
 removePreCondition maybePreCon body = do
     newBody <- case maybePreCon of
