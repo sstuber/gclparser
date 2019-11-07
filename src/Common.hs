@@ -6,7 +6,8 @@ import qualified Data.Map.Strict as M
 import System.Clock
 import Data.Char
 import Control.Monad.Supply
--- name of var to replace -> expression to replace with -> post condition
+
+
 replaceVar :: String -> Expr -> Expr -> Expr
 replaceVar name toReplaceExpr e@(Var name2)                 = if name2 == name then toReplaceExpr else e
 replaceVar name toReplaceExpr (LitI int)                    = (LitI int)
@@ -14,7 +15,7 @@ replaceVar name toReplaceExpr (LitB bool)                   = (LitB bool)
 replaceVar name toReplaceExpr (Parens expr)                 = Parens (replaceVar name toReplaceExpr expr)
 replaceVar name toReplaceExpr (ArrayElem array index)       = ArrayElem (replaceVar name toReplaceExpr array)
                                                                         (replaceVar name toReplaceExpr index)
--- Maybe should go into newval with replaceVar?
+
 replaceVar name toReplaceExpr (RepBy arrayname expr newval) = RepBy (replaceVar name toReplaceExpr arrayname)
                                                                     (replaceVar name toReplaceExpr expr)
                                                                     (replaceVar name toReplaceExpr newval)
@@ -24,7 +25,7 @@ replaceVar name toReplaceExpr (BinopExpr op expr1 expr2)    = BinopExpr op repla
     where
         replacedExpr1 = replaceVar name toReplaceExpr expr1
         replacedExpr2 = replaceVar name toReplaceExpr expr2
-replaceVar name toReplaceExpr (Forall i expr)                             = Forall i (replaceVar name toReplaceExpr expr)
+replaceVar name toReplaceExpr (Forall i expr)               = Forall i (replaceVar name toReplaceExpr expr)
 
 
 replaceVarWithMap :: M.Map String String -> Expr -> Supply Int Expr
@@ -52,11 +53,11 @@ replaceVarWithMap varMap (BinopExpr op expr1 expr2)    = do
     replacedExpr1  <- replaceVarWithMap varMap expr1
     replacedExpr2  <- replaceVarWithMap varMap expr2
     return $ BinopExpr op replacedExpr1 replacedExpr2
-replaceVarWithMap varMap (Forall i expr) = do
-    newInt <- supply
-    let newName = (show newInt) ++ i
-    let newMap = M.insert i newName varMap
-    sExpr <- (replaceVarWithMap newMap expr)
+replaceVarWithMap varMap (Forall i expr)              = do
+    newInt        <- supply
+    let newName   = (show newInt) ++ i
+    let newMap    = M.insert i newName varMap
+    sExpr         <- (replaceVarWithMap newMap expr)
     return $ Forall newName sExpr
 
 replaceVarStmt :: String -> Expr -> Stmt -> Stmt
@@ -81,8 +82,6 @@ timeSpectoDouble t = (seconds + nseconds) :: Double
 
 data Quantifier = A String String | E String String
 
- -- [replicate k ['a'..'z'] | k <- [1..]] >>= sequence
-
 normalizeQuantifiers :: Expr -> Expr
 normalizeQuantifiers e = addQuantifiers quants newVarExpr
     where
@@ -91,7 +90,7 @@ normalizeQuantifiers e = addQuantifiers quants newVarExpr
       (newVarExpr,_)      = runSupply (replaceVarWithMap quantsMap expr) [1..]
 
 quantsToMap :: [Quantifier] -> M.Map String String-> M.Map String String
-quantsToMap [] map1 = map1
+quantsToMap [] map1                  = map1
 quantsToMap ((A value key): xs) map1 = M.insert key value (quantsToMap xs map1)
 quantsToMap ((E value key): xs) map1 = M.insert key value (quantsToMap xs map1)
 
@@ -105,7 +104,6 @@ removeQuantifiers :: Expr ->  Supply String ([Quantifier], Expr)
 removeQuantifiers (Parens expr) = do
     e <- removeQuantifiers expr
     return (fst e , Parens (snd e))
-
 
 removeQuantifiers (ArrayElem exp1 exp2 ) = do
     e1 <- removeQuantifiers exp1
@@ -133,20 +131,3 @@ removeQuantifiers (Forall var expr) = do
     return (A (prefix ++ var) var : fst e, snd e)
 
 removeQuantifiers e = return ([], e)
-
-
-
-fst3 :: (a, b, c) -> a
-fst3 (a, b, c) = a
-
-snd3 :: (a, b, c) -> b
-snd3 (a, b, c) = b
-
-trd3 :: (a, b, c) -> c
-trd3 (a, b, c) = c
-
-mapSnd2 :: (a -> b) -> [(c,a)] -> [(c,b)]
-mapSnd2 f = map (\(i,x)-> (i, f x))
-
-mapFst2 :: (a-> b) -> [(a,c)] -> [(b,c)]
-mapFst2 f = map (\(i,x)-> (f i, x))
