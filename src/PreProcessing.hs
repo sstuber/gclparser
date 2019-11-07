@@ -9,14 +9,6 @@ import Control.Monad
 
 import qualified Data.Map.Strict as M
 
--- TODO function to get all var names for Z3
-   -- structure of pre-processing
-   -- change all var names
-   -- save different var names and types for Z3
-   -- remove all blocks
-   -- remove pre and post condition
-   -- give to splitBranch
-
 fetchPre :: Stmt -> Maybe PreCon
 fetchPre (Assume a)     = Just a
 fetchPre (Seq s1 s2)    = fetchPre s1
@@ -27,7 +19,6 @@ fetchPost (Assert a)     = (Just a)
 fetchPost (Seq s1 s2)    = fetchPost s2
 fetchPost _              = Nothing
 
--- remove the first assume you find on the left side of the seqs
 removePre :: Stmt -> Stmt
 removePre (Seq (Assume _) s2) = s2
 removePre s@(Seq s1 s2)       = Seq (removePre s1) s2
