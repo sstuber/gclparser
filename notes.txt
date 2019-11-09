@@ -1,6 +1,0 @@
-- Replace N with a int.
-- Only explore paths to a certain depth
-- Change variable names for existential and universal quantifiers
-- Are the names in array sizes changed correctly when changing variable names for blocks
-- After a certain time, checking satisfiability does not increase performance that much since it only closes a small branch. We can test certain dethps and write about these in the repport.
-- Write something about Z3 only being able to check if something is satisfiable, so to check if it is valid you need to check if the negation is satisfiable.
